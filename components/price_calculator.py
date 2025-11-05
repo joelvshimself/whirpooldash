@@ -61,7 +61,7 @@ def render_price_calculator():
     )
     
     # Optimize button
-    if st.button("Optimize", type="primary", use_container_width=True):
+    if st.button("Optimize", type="primary", width='stretch'):
         with st.spinner("Calculating price..."):
             try:
                 result = api_client.calculate_price(sku, region, time_range, partner)
@@ -81,7 +81,7 @@ def render_price_calculator():
                     "Release date": [result.get('release_date', datetime.now().isoformat())],
                     "Price": [f"${result['price']:.2f}"]
                 }
-                st.dataframe(results_data, use_container_width=True, hide_index=True)
+                st.dataframe(results_data, width='stretch', hide_index=True)
                 
             except Exception as e:
                 st.error(f"Error calculating price: {str(e)}")

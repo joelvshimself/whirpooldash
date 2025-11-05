@@ -2,13 +2,20 @@
 LSTM model for price prediction
 """
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
 from typing import List, Dict, Any, Optional
 import os
 from .data_processor import DataProcessor
+
+# Try to import TensorFlow, fallback to simple prediction if not available
+try:
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    TENSORFLOW_AVAILABLE = False
+    print("TensorFlow not available. Using simple prediction model.")
 
 
 class LSTMModel:
@@ -23,6 +30,11 @@ class LSTMModel:
     
     def _load_or_create_model(self):
         """Load existing model or create new one"""
+        if not TENSORFLOW_AVAILABLE:
+            self.model = None
+            print("TensorFlow not available. Using simple prediction.")
+            return
+            
         if os.path.exists(self.model_path):
             try:
                 self.model = keras.models.load_model(self.model_path)
@@ -35,6 +47,9 @@ class LSTMModel:
     
     def _create_model(self):
         """Create a new LSTM model architecture"""
+        if not TENSORFLOW_AVAILABLE:
+            return
+            
         self.model = Sequential([
             LSTM(50, return_sequences=True, input_shape=(self.sequence_length, 1)),
             Dropout(0.2),
@@ -54,9 +69,16 @@ class LSTMModel:
         Args:
             training_data: List of dicts with 'price', 'sku', 'region', 'date'
         """
+        if not TENSORFLOW_AVAILABLE:
+            print("TensorFlow not available. Skipping training.")
+            return
+            
         if not training_data:
             print("No training data provided")
             return
+        
+        if self.model is None:
+            self._create_model()
         
         # Extract SKUs and regions for encoding
         skus = [item['sku'] for item in training_data]
@@ -93,8 +115,18 @@ class LSTMModel:
         Returns:
             Predicted price
         """
-        if self.model is None:
-            raise ValueError("Model not initialized")
+        # Fallback to simple prediction if TensorFlow not available
+        if not TENSORFLOW_AVAILABLE or self.model is None:
+            if not historical_prices:
+                return 500.0
+            # Simple trend-based prediction
+            if len(historical_prices) >= 3:
+                # Calculate trend
+                recent = historical_prices[-3:]
+                trend = (recent[-1] - recent[0]) / len(recent)
+                prediction = historical_prices[-1] + trend
+                return float(max(prediction, 0))  # Ensure non-negative
+            return float(np.mean(historical_prices))
         
         if len(historical_prices) < self.sequence_length:
             # Use average if not enough history

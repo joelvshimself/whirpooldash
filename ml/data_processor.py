@@ -3,14 +3,51 @@ Data preprocessing for LSTM model
 """
 import numpy as np
 from typing import List, Dict, Any
-from sklearn.preprocessing import MinMaxScaler
+
+# Try to import scikit-learn, fallback to simple scaler if not available
+try:
+    from sklearn.preprocessing import MinMaxScaler
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("scikit-learn not available. Using simple numpy-based scaler.")
+
+
+class SimpleScaler:
+    """Simple numpy-based scaler when sklearn is not available"""
+    def __init__(self, feature_range=(0, 1)):
+        self.feature_range = feature_range
+        self.data_min_ = None
+        self.data_max_ = None
+    
+    def fit_transform(self, X):
+        self.data_min_ = X.min()
+        self.data_max_ = X.max()
+        return self.transform(X)
+    
+    def transform(self, X):
+        if self.data_min_ is None or self.data_max_ is None:
+            raise ValueError("Scaler must be fitted first")
+        X_std = (X - self.data_min_) / (self.data_max_ - self.data_min_ + 1e-8)
+        X_scaled = X_std * (self.feature_range[1] - self.feature_range[0]) + self.feature_range[0]
+        return X_scaled
+    
+    def inverse_transform(self, X):
+        if self.data_min_ is None or self.data_max_ is None:
+            raise ValueError("Scaler must be fitted first")
+        X_std = (X - self.feature_range[0]) / (self.feature_range[1] - self.feature_range[0] + 1e-8)
+        X_original = X_std * (self.data_max_ - self.data_min_) + self.data_min_
+        return X_original
 
 
 class DataProcessor:
     """Processes data for LSTM training and prediction"""
     
     def __init__(self):
-        self.scaler = MinMaxScaler(feature_range=(0, 1))
+        if SKLEARN_AVAILABLE:
+            self.scaler = MinMaxScaler(feature_range=(0, 1))
+        else:
+            self.scaler = SimpleScaler(feature_range=(0, 1))
         self.sku_encoder = {}
         self.region_encoder = {}
         self._encoder_fitted = False
@@ -90,8 +127,11 @@ class DataProcessor:
             # Pad with last value if not enough history
             historical_prices = [historical_prices[0]] * (sequence_length - len(historical_prices)) + historical_prices
         
-        # Scale prices
+        # Scale prices - if scaler not fitted, fit it first
         prices_array = np.array(historical_prices[-sequence_length:]).reshape(-1, 1)
+        if not hasattr(self.scaler, 'data_min_') or self.scaler.data_min_ is None:
+            # Fit scaler with available data
+            self.scaler.fit_transform(prices_array)
         scaled_prices = self.scaler.transform(prices_array)
         
         return scaled_prices.reshape(1, sequence_length, 1)
