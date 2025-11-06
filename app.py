@@ -2,6 +2,7 @@
 Main Streamlit application
 """
 import streamlit as st
+import os
 import threading
 import time
 from components.dashboard import render_dashboard
@@ -47,10 +48,56 @@ def start_backend():
 # Start backend
 start_backend()
 
-# Native Streamlit Sidebar - Simple test version
+# Native Streamlit Sidebar - Company logo + chips + account section
 with st.sidebar:
-    st.title("Sidebar")
-    
+    # Company logo
+    logo_candidates = [
+        "assets/whirpool_logo.png",
+        "assets/whirlpool_logo.png",
+        "assets/logo.png",
+        "assets/logo.jpg",
+        "assets/logo.jpeg",
+        "assets/logo.svg",
+        "assets/logo.webp",
+    ]
+    logo_path = next((p for p in logo_candidates if os.path.exists(p)), None)
+    if not logo_path:
+        try:
+            for fname in os.listdir("assets"):
+                if fname.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".webp")):
+                    logo_path = os.path.join("assets", fname)
+                    break
+        except Exception:
+            pass
+    if logo_path:
+        st.image(logo_path, use_container_width=True)
+    else:
+        st.markdown("### Your Company")
+
+    st.markdown("---")
+
+    # Chip-like navigation
+    is_dashboard = st.session_state.page == "dashboard"
+    is_tables = st.session_state.page == "tables"
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Dashboard", use_container_width=True, type="primary" if is_dashboard else "secondary"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+    with col2:
+        if st.button("Tables", use_container_width=True, type="primary" if is_tables else "secondary"):
+            st.session_state.page = "tables"
+            st.rerun()
+
+    st.markdown("---")
+
+    # Account/profile section
+    st.markdown("#### Account")
+    st.caption("Signed in as: user@example.com")
+    if st.button("Logout", use_container_width=True):
+        # Simple placeholder action for logout
+        st.success("Logged out")
 
 # Custom CSS
 st.markdown("""
@@ -65,6 +112,14 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background-color: #F5F5F5 !important;
         visibility: visible !important;
+    }
+    /* Sidebar logo sizing */
+    [data-testid="stSidebar"] img {
+        max-height: 64px;
+        width: auto;
+        display: block;
+        margin: 4px auto 12px auto;
+        object-fit: contain;
     }
     
     /* Ensure sidebar toggle button is visible */
@@ -130,7 +185,7 @@ st.markdown("""
     /* Button styling */
     .stButton>button {
         width: 100%;
-        border-radius: 0.5rem;
+        border-radius: 999px; /* pill shape for chips */
         background-color: #FF6B35;
         color: white;
         border: none;
@@ -144,13 +199,27 @@ st.markdown("""
     button[kind="primary"] {
         background-color: #FF6B35 !important;
     }
+    button[kind="secondary"] {
+        background-color: #F3F3F3 !important;
+        color: #2D2D2D !important;
+        border: 1px solid #E0E0E0 !important;
+    }
     
-    /* Cards and containers */
+    /* Cards and containers (main content default) */
     .element-container {
         background-color: white;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
+    }
+    /* Remove bubble effect on the sidebar */
+    [data-testid="stSidebar"] .element-container {
+        background-color: transparent !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        margin-bottom: 0.5rem !important;
     }
     
     /* Table styling */
