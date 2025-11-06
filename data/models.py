@@ -75,6 +75,14 @@ class SKU(Base):
 engine = create_engine(config.DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Test database connection
+try:
+    with engine.connect() as conn:
+        print(f"✅ Successfully connected to database: {config.DB_NAME}")
+        print(f"   Host: {config.DB_HOST}:{config.DB_PORT}")
+except Exception as e:
+    print(f"❌ Failed to connect to database: {e}")
+
 
 def get_db():
     """Get database session"""

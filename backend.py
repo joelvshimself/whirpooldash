@@ -1,11 +1,12 @@
 """
 FastAPI backend server for price prediction
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
+import time
 from services.data_service import DataService
 from services.auth_service import AuthService
 from ml.lstm_model import LSTMModel
@@ -21,6 +22,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all API requests"""
+    start_time = time.time()
+    
+    # Log request
+    print(f"🔵 API Call: {request.method} {request.url.path}")
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Log response time
+    process_time = time.time() - start_time
+    print(f"✅ Response: {response.status_code} ({process_time:.3f}s)")
+    
+    return response
+
 
 # Initialize services
 data_service = DataService()
@@ -76,17 +97,20 @@ def login(request: LoginRequest):
         user = auth_service.authenticate(request.username, request.password)
         
         if user:
+            print(f"   ✅ Login successful for: {request.username}")
             return LoginResponse(
                 success=True,
                 message="Login successful",
                 username=user.username
             )
         else:
+            print(f"   ❌ Invalid credentials for: {request.username}")
             return LoginResponse(
                 success=False,
                 message="Invalid username or password"
             )
     except Exception as e:
+        print(f"   ❌ Login error: {type(e).__name__}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
