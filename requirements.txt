@@ -10,6 +10,12 @@ starlette>=0.40.0,<0.50.0
 pydantic>=1.7.4,<3.0.0
 annotated-doc>=0.0.2
 protobuf>=3.20.0
+streamlit-custom-sidebar>=0.0.16
+streamlit-float>=0.1.0
+# Note: PyArrow stub is installed in site-packages for PyPy compatibility
+# A minimal stub satisfies Streamlit's import check for custom components
+# Full PyArrow installation requires CPython (not compatible with PyPy)
+# If using CPython, you can install: pyarrow>=7.0,<22
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 alembic>=1.12.0
