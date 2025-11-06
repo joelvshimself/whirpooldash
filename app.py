@@ -4,7 +4,6 @@ Main Streamlit application
 import streamlit as st
 import threading
 import time
-from components.sidebar import render_sidebar
 from components.dashboard import render_dashboard
 from components.sku_table import render_sku_table
 from components.price_calculator import render_price_calculator
@@ -18,9 +17,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
+
+# Initialize session state for page navigation
 if 'page' not in st.session_state:
-    st.session_state.page = "dashboard"
+    st.session_state.page = "home"  # Start with home page for testing
 
 if 'backend_started' not in st.session_state:
     st.session_state.backend_started = False
@@ -47,6 +47,11 @@ def start_backend():
 # Start backend
 start_backend()
 
+# Native Streamlit Sidebar - Simple test version
+with st.sidebar:
+    st.title("Sidebar")
+    
+
 # Custom CSS
 st.markdown("""
     <style>
@@ -56,9 +61,21 @@ st.markdown("""
         padding-right: 2rem;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling - Make sure it's visible */
     [data-testid="stSidebar"] {
-        background-color: #F5F5F5;
+        background-color: #F5F5F5 !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure sidebar toggle button is visible */
+    [data-testid="stSidebar"] [data-testid="collapsedControl"] {
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    /* Sidebar header with toggle */
+    [data-testid="stHeader"] {
+        z-index: 1000;
     }
     
     /* Global toggle button - positioned on right edge, always visible */
@@ -159,179 +176,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar
-render_sidebar()
-
-# Floating toggle button - always visible on the left
-if 'sidebar_collapsed' not in st.session_state:
-    st.session_state.sidebar_collapsed = False
-
-# Update CSS for floating button
-st.markdown("""
-<style>
-/* Floating toggle button - fixed on left side */
-.floating-toggle-btn {
-    position: fixed !important;
-    left: 1rem !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 9999 !important;
-    width: 3rem !important;
-    height: 3rem !important;
-    border-radius: 50% !important;
-    background-color: #FFFFFF !important;
-    border: 2px solid #FFD700 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 1.5rem !important;
-    color: #000000 !important;
-    cursor: pointer !important;
-    transition: all 0.3s ease !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-.floating-toggle-btn:hover {
-    background-color: #FFD700 !important;
-    border-color: #FFA500 !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.3) !important;
-    transform: translateY(-50%) scale(1.1) !important;
-}
-
-.floating-toggle-btn:active {
-    transform: translateY(-50%) scale(0.95) !important;
-}
-
-/* Sidebar collapse animation */
-[data-testid="stSidebar"].collapsed {
-    transform: translateX(-100%) !important;
-    transition: transform 0.3s ease !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
-
-[data-testid="stSidebar"]:not(.collapsed) {
-    transform: translateX(0) !important;
-    transition: transform 0.3s ease !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-}
-
-/* Ensure sidebar is visible by default */
-[data-testid="stSidebar"] {
-    visibility: visible !important;
-    display: block !important;
-    opacity: 1 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Create floating button with JavaScript
-toggle_icon = "▶" if st.session_state.sidebar_collapsed else "◀"
-
-st.markdown(f"""
-<button class="floating-toggle-btn" id="floating-sidebar-toggle">
-    {toggle_icon}
-</button>
-
-<script>
-(function() {{
-    const sidebar = document.querySelector('[data-testid="stSidebar"]');
-    const toggleBtn = document.getElementById('floating-sidebar-toggle');
-    const isCollapsed = {str(st.session_state.sidebar_collapsed).lower()};
-    
-    // Apply initial state immediately - wait for DOM to be ready
-    function applyInitialState() {{
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        const btn = document.getElementById('floating-sidebar-toggle');
-        
-        if (sidebar && btn) {{
-            if ({str(st.session_state.sidebar_collapsed).lower()}) {{
-                sidebar.classList.add('collapsed');
-                btn.textContent = '▶';
-            }} else {{
-                sidebar.classList.remove('collapsed');
-                btn.textContent = '◀';
-            }}
-        }}
-    }}
-    
-    // Try multiple times to ensure sidebar is found
-    applyInitialState();
-    setTimeout(applyInitialState, 100);
-    setTimeout(applyInitialState, 500);
-    
-    // Add click handler
-    if (toggleBtn) {{
-        toggleBtn.addEventListener('click', function(e) {{
-            e.preventDefault();
-            e.stopPropagation();
-            
-            if (sidebar) {{
-                const currentlyCollapsed = sidebar.classList.contains('collapsed');
-                const newState = !currentlyCollapsed;
-                
-                // Force sidebar to be visible before toggling
-                sidebar.style.display = 'block';
-                sidebar.style.visibility = 'visible';
-                sidebar.style.opacity = '1';
-                
-                if (newState) {{
-                    // Hide sidebar
-                    sidebar.classList.add('collapsed');
-                    toggleBtn.textContent = '▶';
-                }} else {{
-                    // Show sidebar - ensure it's visible
-                    sidebar.classList.remove('collapsed');
-                    sidebar.style.display = 'block';
-                    sidebar.style.visibility = 'visible';
-                    sidebar.style.opacity = '1';
-                    sidebar.style.transform = 'translateX(0)';
-                    toggleBtn.textContent = '◀';
-                }}
-                
-                // Find and click Streamlit button to persist state
-                setTimeout(function() {{
-                    // Try multiple selectors
-                    let streamlitBtn = document.querySelector('button[key="sidebar_toggle"]');
-                    if (!streamlitBtn) {{
-                        // Find by text
-                        const allButtons = document.querySelectorAll('button');
-                        allButtons.forEach(btn => {{
-                            if (btn.textContent.trim() === 'Toggle') {{
-                                streamlitBtn = btn;
-                            }}
-                        }});
-                    }}
-                    
-                    if (streamlitBtn) {{
-                        streamlitBtn.click();
-                    }} else {{
-                        // Force rerun if button not found
-                        console.log('Triggering rerun');
-                        window.location.reload();
-                    }}
-                }}, 100);
-            }}
-        }}, true);
-    }}
-}})();
-</script>
-""", unsafe_allow_html=True)
-
-# Hidden Streamlit button to persist state - make it more accessible
-st.markdown("""
-<div style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
-""", unsafe_allow_html=True)
-if st.button("Toggle", key="sidebar_toggle"):
-    st.session_state.sidebar_collapsed = not st.session_state.sidebar_collapsed
-    st.rerun()
-st.markdown("</div>", unsafe_allow_html=True)
-
 # Main content area
-if st.session_state.page == "dashboard":
+if st.session_state.page == "home":
+    # Simple test page
+    st.title("🏠 Home - Prueba 1")
+    st.markdown("---")
+    st.success("✅ Esta es una página de prueba para verificar que el sidebar funciona correctamente")
+    st.info("👈 Mira el sidebar a la izquierda - deberías ver el icono de toggle (☰) en la esquina superior izquierda")
+    
+    st.markdown("### Instrucciones:")
+    st.markdown("""
+    1. Busca el icono de menú (☰) en la esquina superior izquierda
+    2. Haz clic en él para abrir/cerrar el sidebar
+    3. Usa los botones del sidebar para navegar entre páginas
+    """)
+    
+    st.markdown("---")
+    st.markdown("**Página actual:** " + st.session_state.page)
+
+elif st.session_state.page == "dashboard":
     # Three column layout: main content and calculator
     col1, col2 = st.columns([2.5, 1])
     
@@ -349,6 +212,6 @@ elif st.session_state.page == "tables":
     render_sku_table()
 
 else:
-    st.title("Dashboard")
-    render_dashboard()
+    st.title("Home - Prueba 1")
+    st.info("Página de prueba")
 
