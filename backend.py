@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
 from services.data_service import DataService
+from services.auth_service import AuthService
 from ml.lstm_model import LSTMModel
 import config
 
@@ -23,6 +24,7 @@ app.add_middleware(
 
 # Initialize services
 data_service = DataService()
+auth_service = AuthService()
 lstm_model = LSTMModel()
 
 
@@ -42,10 +44,50 @@ class PredictionResponse(BaseModel):
     confidence: float = 0.85
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    username: Optional[str] = None
+
+
 @app.get("/")
 def root():
     """Health check endpoint"""
     return {"status": "ok", "message": "Whirlpool Price Prediction API"}
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(request: LoginRequest):
+    """
+    Authenticate user
+    
+    Args:
+        request: Login request with username and password
+        
+    Returns:
+        Login response with success status
+    """
+    try:
+        user = auth_service.authenticate(request.username, request.password)
+        
+        if user:
+            return LoginResponse(
+                success=True,
+                message="Login successful",
+                username=user.username
+            )
+        else:
+            return LoginResponse(
+                success=False,
+                message="Invalid username or password"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/predict", response_model=PredictionResponse)
