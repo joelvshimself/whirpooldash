@@ -20,7 +20,7 @@ st.set_page_config(
 
 # Initialize session state for page navigation
 if 'page' not in st.session_state:
-    st.session_state.page = "home"  # Start with home page for testing
+    st.session_state.page = "dashboard"  # Start with home page for testing
 
 if 'backend_started' not in st.session_state:
     st.session_state.backend_started = False
@@ -169,10 +169,9 @@ st.markdown("""
         border-radius: 0.5rem;
     }
     
-    /* Hide Streamlit branding */
+    /* Hide Streamlit branding (keep header visible for sidebar toggle) */
     #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+
     </style>
 """, unsafe_allow_html=True)
 
