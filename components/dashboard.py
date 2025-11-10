@@ -188,7 +188,7 @@ def render_active_users():
 
 def render_dashboard():
     """Render the main dashboard"""
-    st.title("Dashboard")
+    st.title("Dashboardd")
     
     # KPIs
     render_kpi_cards()
