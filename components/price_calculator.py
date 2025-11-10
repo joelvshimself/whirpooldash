@@ -16,80 +16,78 @@ def render_price_calculator():
     # Initialize session state
     if 'show_history' not in st.session_state:
         st.session_state.show_history = False
+    if 'price_calc_data' not in st.session_state:
+        st.session_state.price_calc_data = []
     
+    # Light/minimal styling (remove dark panel)
+    st.markdown("""
+    <style>
+    .pc-card { border: 1px solid #EEEEEE; border-radius: 8px; padding: 16px; background: #FFFFFF; }
+    .pc-actions { margin-top: 8px; }
+    .pc-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Title
     st.markdown("### Price Calculator")
     
-    # History dropdown
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("History"):
-            st.session_state.show_history = not st.session_state.show_history
-    
-    # Display history if requested
-    if st.session_state.get('show_history', False):
-        st.markdown("#### History")
-        history = api_client.get_history(limit=10)
-        if history:
-            for record in history:
-                st.markdown(f"**{record['sku']}** - {record['region']} - {record['partner']} - ${record['price']:.2f}")
-        else:
+    # History (expander for a cleaner layout)
+    with st.expander("History", expanded=False):
+        try:
+            history = api_client.get_history(limit=10)
+            if history and len(history) > 0:
+                for record in history:
+                    st.markdown(f"**{record['sku']}** - {record['region']} - {record['partner']} - ${record['price']:.2f}")
+            else:
+                st.info("No history available")
+        except Exception as e:
             st.info("No history available")
-        st.markdown("---")
     
-    # Input form
-    st.markdown("Choose your entries")
-    
-    partner = st.selectbox(
-        "Partner",
-        options=config.DEFAULT_PARTNERS,
-        index=0  # Walmart as default
-    )
-    
-    sku = st.selectbox(
-        "SKU",
-        options=config.DEFAULT_SKUS
-    )
-    
-    region = st.selectbox(
-        "Region",
-        options=config.DEFAULT_REGIONS
-    )
-    
-    time_range = st.selectbox(
-        "Time Range",
-        options=config.TIME_RANGE_OPTIONS
-    )
-    
-    # Optimize button
-    if st.button("Optimize", type="primary", width='stretch'):
-        with st.spinner("Calculating price..."):
-            try:
-                result = api_client.calculate_price(sku, region, time_range, partner)
-                
-                # Store result in session state
-                st.session_state.last_prediction = result
-                
-                # Display result
-                st.success("Price calculated successfully!")
-                
-                # Results table
-                st.markdown("#### Results")
-                results_data = {
-                    "SKU": [result['sku']],
-                    "Region": [result['region']],
-                    "Partner": [result['partner']],
-                    "Release date": [result.get('release_date', datetime.now().isoformat())],
-                    "Price": [f"${result['price']:.2f}"]
-                }
-                st.dataframe(results_data, width='stretch', hide_index=True)
-                
-            except Exception as e:
-                st.error(f"Error calculating price: {str(e)}")
-    
-    # Display last prediction if available
-    if 'last_prediction' in st.session_state:
-        st.markdown("---")
-        st.markdown("#### Last Prediction")
-        result = st.session_state.last_prediction
-        st.json(result)
-
+    # Inputs in a clean 2x2 grid
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            sku = st.selectbox(
+                "SKU",
+                options=config.DEFAULT_SKUS,
+                key="pc_sku"
+            )
+            region = st.selectbox(
+                "Region",
+                options=config.DEFAULT_REGIONS,
+                key="pc_region"
+            )
+        with col2:
+            time_range = st.selectbox(
+                "Time Range",
+                options=config.TIME_RANGE_OPTIONS,
+                key="pc_time_range"
+            )
+            partner = st.selectbox(
+                "Partner",
+                options=config.DEFAULT_PARTNERS,
+                index=0,
+                key="pc_partner"
+            )
+        
+        # Optimize action aligned to the right
+        col_space, col_opt = st.columns([3, 1])
+        with col_opt:
+            if st.button("Optimize", key="pc_optimize", use_container_width=True):
+                with st.spinner("Calculating price..."):
+                    try:
+                        result = api_client.calculate_price(sku, region, time_range, partner)
+                        st.session_state.last_prediction = result
+                        
+                        release_date = result.get('release_date', datetime.now().strftime('%Y-%m-%d'))
+                        st.session_state.price_calc_data = [{
+                            "SKU": result['sku'],
+                            "Region": result['region'],
+                            "Partner": result['partner'],
+                            "Release date": release_date,
+                            "Price": f"${result['price']:.2f}"
+                        }]
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error calculating price: {str(e)}")
