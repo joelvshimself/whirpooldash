@@ -64,4 +64,25 @@ jobs:
             az webapp restart -g $RESOURCE_GROUP -n $WEBAPP_NAME
 
 
+      - name: Show deployed site (pretty ticket)
+        run: |
+          SITE_URL="https://${{ env.WEBAPP_NAME }}.azurewebsites.net"
+
+          echo ""
+          echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+          echo "┃  ✅ Deploy completado                 ┃"
+          echo "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫"
+          echo "┃  App:   ${{ env.WEBAPP_NAME }}"
+          echo "┃  URL:   $SITE_URL"
+          echo "┃  Image: ${{ env.IMAGE_NAME }}:latest"
+          echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+
+          {
+            echo "### ✅ Deploy ticket"
+            echo ""
+            echo "- **App**: \`${{ env.WEBAPP_NAME }}\`"
+            echo "- **URL**: [$SITE_URL]($SITE_URL)"
+            echo "- **Image**: \`${{ env.IMAGE_NAME }}:latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
 
