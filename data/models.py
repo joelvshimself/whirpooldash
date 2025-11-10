@@ -71,17 +71,71 @@ class SKU(Base):
         return f"<SKU(company='{self.company}', completion={self.completion}%)>"
 
 
-# Database engine and session factory
-engine = create_engine(config.DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Database engine and session factory (lazy initialization)
+_engine = None
+_session_factory = None
 
-# Test database connection
-try:
-    with engine.connect() as conn:
-        print(f"✅ Successfully connected to database: {config.DB_NAME}")
-        print(f"   Host: {config.DB_HOST}:{config.DB_PORT}")
-except Exception as e:
-    print(f"❌ Failed to connect to database: {e}")
+
+def _get_engine():
+    """Lazy initialization of database engine"""
+    global _engine
+    if _engine is None:
+        try:
+            # Try to import psycopg2, fallback to psycopg2cffi for PyPy compatibility
+            try:
+                import psycopg2
+            except ImportError:
+                try:
+                    import psycopg2cffi
+                    # Register psycopg2cffi as psycopg2 for compatibility
+                    import psycopg2cffi.compat
+                    psycopg2cffi.compat.register()
+                except ImportError:
+                    raise ImportError(
+                        "psycopg2-binary or psycopg2cffi is required for database operations. "
+                        "For CPython: pip install psycopg2-binary\n"
+                        "For PyPy: pip install psycopg2cffi"
+                    )
+            
+            _engine = create_engine(config.DATABASE_URL, echo=False)
+            # Test database connection
+            with _engine.connect() as conn:
+                print(f"✅ Successfully connected to database: {config.DB_NAME}")
+                print(f"   Host: {config.DB_HOST}:{config.DB_PORT}")
+        except ImportError as e:
+            if "psycopg2" in str(e).lower() or "psycopg2cffi" in str(e).lower():
+                raise ImportError(
+                    "psycopg2-binary or psycopg2cffi is required for database operations. "
+                    "For CPython: pip install psycopg2-binary\n"
+                    "For PyPy: pip install psycopg2cffi"
+                ) from e
+            raise
+        except Exception as e:
+            print(f"❌ Failed to connect to database: {e}")
+            raise
+    return _engine
+
+
+def _get_session_factory():
+    """Lazy initialization of session factory"""
+    global _session_factory
+    if _session_factory is None:
+        engine = _get_engine()
+        _session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return _session_factory
+
+
+class LazySessionLocal:
+    """Lazy sessionmaker that only initializes when first used"""
+    def __call__(self, *args, **kwargs):
+        return _get_session_factory()(*args, **kwargs)
+    
+    def __getattr__(self, name):
+        return getattr(_get_session_factory(), name)
+
+
+# SessionLocal is now a lazy callable that behaves like sessionmaker
+SessionLocal = LazySessionLocal()
 
 
 def get_db():
@@ -95,10 +149,12 @@ def get_db():
 
 def create_tables():
     """Create all tables in the database"""
+    engine = _get_engine()
     Base.metadata.create_all(bind=engine)
 
 
 def drop_tables():
     """Drop all tables in the database"""
+    engine = _get_engine()
     Base.metadata.drop_all(bind=engine)
 

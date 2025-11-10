@@ -8,7 +8,6 @@ from typing import Optional, List
 import uvicorn
 import time
 from services.data_service import DataService
-from services.auth_service import AuthService
 from ml.lstm_model import LSTMModel
 import config
 
@@ -43,10 +42,19 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# Initialize services
+# Initialize services (auth_service is lazy - only created when needed)
 data_service = DataService()
-auth_service = AuthService()
+_auth_service = None
 lstm_model = LSTMModel()
+
+
+def get_auth_service():
+    """Lazy initialization of auth service to avoid psycopg2 dependency when using mock data"""
+    global _auth_service
+    if _auth_service is None:
+        from services.auth_service import AuthService
+        _auth_service = AuthService()
+    return _auth_service
 
 
 class PredictionRequest(BaseModel):
@@ -94,6 +102,7 @@ def login(request: LoginRequest):
         Login response with success status
     """
     try:
+        auth_service = get_auth_service()
         user = auth_service.authenticate(request.username, request.password)
         
         if user:

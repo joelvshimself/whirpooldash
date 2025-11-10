@@ -5,7 +5,6 @@ Uses abstraction - doesn't know if data is mock or real
 from typing import Optional
 from data.data_source import DataSource
 from data.mock_data_source import MockDataSource
-from data.database_data_source import DatabaseDataSource
 import config
 
 
@@ -29,6 +28,8 @@ class DataService:
         if config.DATA_SOURCE_TYPE == "mock":
             self._data_source = MockDataSource()
         elif config.DATA_SOURCE_TYPE == "database":
+            # Lazy import to avoid psycopg2 dependency when using mock data
+            from data.database_data_source import DatabaseDataSource
             self._data_source = DatabaseDataSource()
         else:
             raise ValueError(f"Unknown data source type: {config.DATA_SOURCE_TYPE}")
