@@ -118,13 +118,27 @@ az webapp browse -g rg-whirpooldash -n whirpooldash-web
 A workflow is included at `.github/workflows/deploy.yml`. It:
 
 - Builds and pushes `linux/amd64` image to Docker Hub as `joecast208/whirpooldash:latest` (and `${GITHUB_SHA}`).
-- Deploys the container to the Azure Web App `streamlit-app-demos` using a publish profile.
+- Deploys the container to the Azure Web App `streamlit-app-demos` using Azure CLI and a Service Principal.
 - Triggers on every push to `main` and on manual `workflow_dispatch`.
 
 Required repository secrets:
 - `DOCKERHUB_USERNAME`: your Docker Hub username (e.g., `joecast208`)
-- `DOCKERHUB_TOKEN`: a Docker Hub access token (from Docker Hub > Account Settings > Security)
-- `AZURE_WEBAPP_PUBLISH_PROFILE`: contents of the publish profile from Azure Portal (Web App > Overview > Get publish profile)
+- `DOCKERHUB_TOKEN`: a Docker Hub access token (Docker Hub → Account Settings → Security)
+- `AZURE_CREDENTIALS`: JSON from Azure Service Principal with Contributor on the resource group.
+
+Create the Service Principal and secret:
+```bash
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+az ad sp create-for-rbac \
+  --name gh-actions-whirpooldash \
+  --role contributor \
+  --scopes /subscriptions/$SUBSCRIPTION_ID/resourceGroups/st \
+  --sdk-auth > azure_creds.json
+
+# Copy the contents of azure_creds.json into the GitHub Secret AZURE_CREDENTIALS
+```
+
+Optional (legacy) alternative if you use a Publish Profile instead of Service Principal: use `azure/webapps-deploy@v3` with the secret `AZURE_WEBAPP_PUBLISH_PROFILE` (Portal → Web App → Overview → Download publish profile). Note: puede estar deshabilitado si está apagada la autenticación básica.
 
 After adding the secrets, push to `main` to trigger a build and deploy automatically.
 
