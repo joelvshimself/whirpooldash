@@ -63,10 +63,23 @@ jobs:
 
             az webapp restart -g $RESOURCE_GROUP -n $WEBAPP_NAME
 
+      - name: Resolve site URL from Azure
+        id: siteurl
+        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            SITE_HOST=$(az webapp show -g $RESOURCE_GROUP -n $WEBAPP_NAME --query defaultHostName -o tsv)
+            echo "site_url=https://${SITE_HOST}" >> "$GITHUB_OUTPUT"
 
       - name: Show deployed site (pretty ticket)
         run: |
-          SITE_URL="https://${{ env.WEBAPP_NAME }}.azurewebsites.net"
+          SITE_URL="${{ steps.siteurl.outputs.site_url }}"
+          if [ -z "$SITE_URL" ]; then
+            # Placeholder while Azure defaultHostName is not resolved via credentials
+            SITE_URL="https://streamlit-app-demos-a0a8b9e7c7c5cfcu.canadacentral-01.azurewebsites.net"
+          fi
 
           echo ""
           echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
