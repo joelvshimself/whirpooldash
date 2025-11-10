@@ -1,12 +1,14 @@
 """
 FastAPI backend server for price prediction
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
+import time
 from services.data_service import DataService
+from services.auth_service import AuthService
 from ml.lstm_model import LSTMModel
 import config
 
@@ -21,8 +23,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all API requests"""
+    start_time = time.time()
+    
+    # Log request
+    print(f"🔵 API Call: {request.method} {request.url.path}")
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Log response time
+    process_time = time.time() - start_time
+    print(f"✅ Response: {response.status_code} ({process_time:.3f}s)")
+    
+    return response
+
+
 # Initialize services
 data_service = DataService()
+auth_service = AuthService()
 lstm_model = LSTMModel()
 
 
@@ -42,10 +65,53 @@ class PredictionResponse(BaseModel):
     confidence: float = 0.85
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    username: Optional[str] = None
+
+
 @app.get("/")
 def root():
     """Health check endpoint"""
     return {"status": "ok", "message": "Whirlpool Price Prediction API"}
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(request: LoginRequest):
+    """
+    Authenticate user
+    
+    Args:
+        request: Login request with username and password
+        
+    Returns:
+        Login response with success status
+    """
+    try:
+        user = auth_service.authenticate(request.username, request.password)
+        
+        if user:
+            print(f"   ✅ Login successful for: {request.username}")
+            return LoginResponse(
+                success=True,
+                message="Login successful",
+                username=user.username
+            )
+        else:
+            print(f"   ❌ Invalid credentials for: {request.username}")
+            return LoginResponse(
+                success=False,
+                message="Invalid username or password"
+            )
+    except Exception as e:
+        print(f"   ❌ Login error: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/predict", response_model=PredictionResponse)

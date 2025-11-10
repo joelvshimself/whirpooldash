@@ -26,6 +26,12 @@ if 'page' not in st.session_state:
 if 'backend_started' not in st.session_state:
     st.session_state.backend_started = False
 
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
 
 def start_backend():
     """Start the FastAPI backend server in a separate thread"""
@@ -48,7 +54,71 @@ def start_backend():
 # Start backend
 start_backend()
 
-# Native Streamlit Sidebar - Company logo + chips + account section
+
+def render_login():
+    """Render login page"""
+    st.markdown("""
+        <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+        st.title("🌀 Whirlpool Dashboard")
+        st.markdown("### Login")
+        
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        
+        if st.button("Login", type="primary", use_container_width=True):
+            if username and password:
+                # Call authentication endpoint
+                import requests
+                try:
+                    response = requests.post(
+                        f"{config.API_BASE_URL}/api/auth/login",
+                        json={"username": username, "password": password},
+                        timeout=5
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("success"):
+                            st.session_state.authenticated = True
+                            st.session_state.username = data.get("username")
+                            st.success("Login successful!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(data.get("message", "Invalid credentials"))
+                    else:
+                        st.error("Authentication service unavailable")
+                except Exception as e:
+                    st.error(f"Error connecting to authentication service: {e}")
+            else:
+                st.warning("Please enter both username and password")
+        
+        st.markdown("---")
+        st.info("Default credentials: **admin** / **admin**")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# Check authentication - show login first
+if not st.session_state.authenticated:
+    render_login()
+    st.stop()
+
+# Native Streamlit Sidebar - Only show if authenticated
 with st.sidebar:
     # Company logo
     logo_candidates = [
@@ -76,28 +146,28 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Chip-like navigation
-    is_dashboard = st.session_state.page == "dashboard"
-    is_tables = st.session_state.page == "tables"
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Dashboard", use_container_width=True, type="primary" if is_dashboard else "secondary"):
-            st.session_state.page = "dashboard"
-            st.rerun()
-    with col2:
-        if st.button("Tables", use_container_width=True, type="primary" if is_tables else "secondary"):
-            st.session_state.page = "tables"
-            st.rerun()
-
+    # Navigation buttons
+    if st.button("🏠 Home", use_container_width=True):
+        st.session_state.page = "home"
+        st.rerun()
+    
+    if st.button("📊 Dashboard", use_container_width=True):
+        st.session_state.page = "dashboard"
+        st.rerun()
+    
+    if st.button("📋 Tables", use_container_width=True):
+        st.session_state.page = "tables"
+        st.rerun()
+    
     st.markdown("---")
-
+    
     # Account/profile section
     st.markdown("#### Account")
-    st.caption("Signed in as: user@example.com")
-    if st.button("Logout", use_container_width=True):
-        # Simple placeholder action for logout
-        st.success("Logged out")
+    st.markdown(f"**Logged in as:** {st.session_state.username}")
+    if st.button("Logout", type="secondary", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.username = None
+        st.rerun()
 
 # Custom CSS
 st.markdown("""
