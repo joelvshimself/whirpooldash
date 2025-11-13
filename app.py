@@ -9,6 +9,8 @@ from components.dashboard import render_dashboard
 from components.sku_table import render_sku_table
 from components.price_calculator import render_price_calculator
 import config
+import uvicorn
+import backend
 
 # Page configuration
 st.set_page_config(
@@ -31,8 +33,7 @@ def start_backend():
     """Start the FastAPI backend server in a separate thread"""
     if not st.session_state.backend_started:
         try:
-            import uvicorn
-            import backend
+            print(f"Starting backend on port {config.API_PORT}")
             
             def run_backend():
                 uvicorn.run(backend.app, host="0.0.0.0", port=config.API_PORT, log_level="error")
@@ -40,9 +41,10 @@ def start_backend():
             backend_thread = threading.Thread(target=run_backend, daemon=True)
             backend_thread.start()
             st.session_state.backend_started = True
-            time.sleep(2)  # Give backend time to start
+            time.sleep(2)
         except Exception as e:
             st.warning(f"Backend startup issue: {e}. Some features may not work.")
+            st.session_state.backend_started = True
 
 
 # Start backend
@@ -70,7 +72,7 @@ with st.sidebar:
         except Exception:
             pass
     if logo_path:
-        st.image(logo_path, use_container_width=True)
+        st.image(logo_path, width='stretch')
     else:
         st.markdown("### Your Company")
 
@@ -82,11 +84,11 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Dashboard", use_container_width=True, type="primary" if is_dashboard else "secondary"):
+        if st.button("Dashboard", width='stretch', type="primary" if is_dashboard else "secondary"):
             st.session_state.page = "dashboard"
             st.rerun()
     with col2:
-        if st.button("Tables", use_container_width=True, type="primary" if is_tables else "secondary"):
+        if st.button("Tables", width='stretch', type="primary" if is_tables else "secondary"):
             st.session_state.page = "tables"
             st.rerun()
 
@@ -95,7 +97,7 @@ with st.sidebar:
     # Account/profile section
     st.markdown("#### Account")
     st.caption("Signed in as: user@example.com")
-    if st.button("Logout", use_container_width=True):
+    if st.button("Logout", width='stretch'):
         # Simple placeholder action for logout
         st.success("Logged out")
 

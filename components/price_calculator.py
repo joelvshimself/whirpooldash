@@ -30,6 +30,7 @@ def render_price_calculator():
     
     # Title
     st.markdown("### Price Calculator")
+    st.caption("Using partner-specific ML models from Azure")
     
     # History (expander for a cleaner layout)
     with st.expander("History", expanded=False):
@@ -64,16 +65,17 @@ def render_price_calculator():
                 key="pc_time_range"
             )
             partner = st.selectbox(
-                "Partner",
+                "Training Partner",
                 options=config.DEFAULT_PARTNERS,
                 index=0,
-                key="pc_partner"
+                key="pc_partner",
+                help="Select the partner whose trained model to use for prediction"
             )
         
         # Optimize action aligned to the right
         col_space, col_opt = st.columns([3, 1])
         with col_opt:
-            if st.button("Optimize", key="pc_optimize", use_container_width=True):
+            if st.button("Optimize", key="pc_optimize", width='stretch'):
                 with st.spinner("Calculating price..."):
                     try:
                         result = api_client.calculate_price(sku, region, time_range, partner)

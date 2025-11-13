@@ -3,6 +3,10 @@ Configuration file for Whirlpool Dashboard
 """
 import os
 from typing import List
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Data Source Configuration
 DATA_SOURCE_TYPE = os.getenv("DATA_SOURCE_TYPE", "mock")  # "mock" or "database"
@@ -10,6 +14,16 @@ DATA_SOURCE_TYPE = os.getenv("DATA_SOURCE_TYPE", "mock")  # "mock" or "database"
 # API Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PORT = int(os.getenv("API_PORT", "8000"))
+
+# Azure Blob Storage Configuration
+AZURE_BLOB_BASE_URL = os.getenv(
+    "AZURE_BLOB_BASE_URL", 
+    "https://modelstoragest.blob.core.windows.net/models"
+)
+AZURE_BLOB_SAS_TOKEN = os.getenv(
+    "AZURE_BLOB_SAS_TOKEN",
+    "sp=r&st=2025-11-12T16:57:51Z&se=2026-09-17T01:12:51Z&sv=2024-11-04&sr=c&sig=YskSjKCiHsrn1CIJX9wQP8mH1oBVMNuUyAwjUR69M0Y%3D"
+)
 
 # Default Values
 DEFAULT_PARTNERS = ["Walmart", "Target", "Best Buy", "Home Depot", "Lowes"]

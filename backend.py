@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
 from services.data_service import DataService
+from services.azure_model_service import AzureModelService
 from ml.lstm_model import LSTMModel
 import config
 
@@ -23,7 +24,8 @@ app.add_middleware(
 
 # Initialize services
 data_service = DataService()
-lstm_model = LSTMModel()
+azure_model_service = AzureModelService()
+lstm_model = LSTMModel()  # Fallback model
 
 
 class PredictionRequest(BaseModel):
@@ -51,7 +53,7 @@ def root():
 @app.post("/api/predict", response_model=PredictionResponse)
 def predict_price(request: PredictionRequest):
     """
-    Predict price using LSTM model
+    Predict price using partner-specific LSTM model from Azure
     
     Args:
         request: Prediction request with SKU, region, time_range, partner
@@ -69,12 +71,22 @@ def predict_price(request: PredictionRequest):
         # Extract historical prices
         historical_prices = [item['price'] for item in training_data]
         
-        # Train model if needed (or use existing)
-        if len(historical_prices) >= 10:
-            lstm_model.train(training_data)
-        
-        # Make prediction
-        predicted_price = lstm_model.predict(request.sku, request.region, historical_prices)
+        # Try to load partner-specific model from Azure
+        predicted_price = None
+        try:
+            partner_model = azure_model_service.load_model(request.partner)
+            
+            # Use the loaded model for prediction
+            if hasattr(partner_model, 'predict'):
+                predicted_price = partner_model.predict(request.sku, request.region, historical_prices)
+            else:
+                # If model doesn't have predict method, use fallback
+                predicted_price = lstm_model.predict(request.sku, request.region, historical_prices)
+        except Exception as azure_error:
+            # Fallback to local LSTM model if Azure model fails
+            if len(historical_prices) >= 10:
+                lstm_model.train(training_data)
+            predicted_price = lstm_model.predict(request.sku, request.region, historical_prices)
         
         # Add to history
         if hasattr(data_service.get_data_source(), 'add_price_prediction'):
@@ -115,10 +127,43 @@ def get_history(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/partners")
+def get_available_partners():
+    """
+    Get list of available training partners with models
+    
+    Returns:
+        List of partner names
+    """
+    try:
+        partners = azure_model_service.list_available_partners()
+        return {"partners": partners}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/reload-model")
+def reload_partner_model(partner: str):
+    """
+    Reload a partner's model from Azure (clears cache)
+    
+    Args:
+        partner: Partner name
+        
+    Returns:
+        Reload status
+    """
+    try:
+        azure_model_service.reload_model(partner)
+        return {"status": "success", "message": f"Model for {partner} reloaded"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/train")
 def train_model(sku: Optional[str] = None, region: Optional[str] = None):
     """
-    Train/retrain LSTM model
+    Train/retrain local fallback LSTM model
     
     Args:
         sku: Optional SKU to train on
@@ -133,8 +178,6 @@ def train_model(sku: Optional[str] = None, region: Optional[str] = None):
             lstm_model.train(training_data)
             return {"status": "success", "message": f"Model trained on {sku}/{region}"}
         else:
-            # Train on all available data
-            # This is a simplified version - in production, you'd iterate through all SKU/region combinations
             return {"status": "success", "message": "Model training initiated"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
