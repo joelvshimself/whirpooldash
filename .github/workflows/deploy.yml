@@ -1,0 +1,101 @@
+name: Deploy to Azure Web App (Container)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: joecast208/whirpooldash
+  WEBAPP_NAME: streamlit-app-demos
+  RESOURCE_GROUP: st
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      - name: Configure container image and app settings
+        uses: azure/cli@v2
+        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        with:
+          inlineScript: |
+            set -e
+            az webapp config container set \
+              -g $RESOURCE_GROUP -n $WEBAPP_NAME \
+              --docker-custom-image-name $IMAGE_NAME:latest
+
+            az webapp config appsettings set \
+              -g $RESOURCE_GROUP -n $WEBAPP_NAME \
+              --settings WEBSITES_PORT=8080 PORT=8080
+
+            az webapp restart -g $RESOURCE_GROUP -n $WEBAPP_NAME
+
+      - name: Resolve site URL from Azure
+        id: siteurl
+        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            SITE_HOST=$(az webapp show -g $RESOURCE_GROUP -n $WEBAPP_NAME --query defaultHostName -o tsv)
+            echo "site_url=https://${SITE_HOST}" >> "$GITHUB_OUTPUT"
+
+      - name: Show deployed site (pretty ticket)
+        run: |
+          SITE_URL="${{ steps.siteurl.outputs.site_url }}"
+          if [ -z "$SITE_URL" ]; then
+            # Placeholder while Azure defaultHostName is not resolved via credentials
+            SITE_URL="https://streamlit-app-demos-a0a8b9e7c7c5cfcu.canadacentral-01.azurewebsites.net"
+          fi
+
+          echo ""
+          echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+          echo "┃  ✅ Deploy completado                 ┃"
+          echo "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫"
+          echo "┃  App:   ${{ env.WEBAPP_NAME }}"
+          echo "┃  URL:   $SITE_URL"
+          echo "┃  Image: ${{ env.IMAGE_NAME }}:latest"
+          echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+
+          {
+            echo "### ✅ Deploy ticket"
+            echo ""
+            echo "- **App**: \`${{ env.WEBAPP_NAME }}\`"
+            echo "- **URL**: [$SITE_URL]($SITE_URL)"
+            echo "- **Image**: \`${{ env.IMAGE_NAME }}:latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+

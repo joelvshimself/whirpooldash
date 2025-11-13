@@ -2,6 +2,7 @@
 Main Streamlit application
 """
 import streamlit as st
+import os
 import threading
 import time
 from components.dashboard import render_dashboard
@@ -20,7 +21,7 @@ st.set_page_config(
 
 # Initialize session state for page navigation
 if 'page' not in st.session_state:
-    st.session_state.page = "home"  # Start with home page for testing
+    st.session_state.page = "dashboard"  # Start with home page for testing
 
 if 'backend_started' not in st.session_state:
     st.session_state.backend_started = False
@@ -155,6 +156,14 @@ st.markdown("""
         background-color: #F5F5F5 !important;
         visibility: visible !important;
     }
+    /* Sidebar logo sizing */
+    [data-testid="stSidebar"] img {
+        max-height: 64px;
+        width: auto;
+        display: block;
+        margin: 4px auto 12px auto;
+        object-fit: contain;
+    }
     
     /* Ensure sidebar toggle button is visible */
     [data-testid="stSidebar"] [data-testid="collapsedControl"] {
@@ -219,7 +228,7 @@ st.markdown("""
     /* Button styling */
     .stButton>button {
         width: 100%;
-        border-radius: 0.5rem;
+        border-radius: 999px; /* pill shape for chips */
         background-color: #FF6B35;
         color: white;
         border: none;
@@ -233,13 +242,27 @@ st.markdown("""
     button[kind="primary"] {
         background-color: #FF6B35 !important;
     }
+    button[kind="secondary"] {
+        background-color: #F3F3F3 !important;
+        color: #2D2D2D !important;
+        border: 1px solid #E0E0E0 !important;
+    }
     
-    /* Cards and containers */
+    /* Cards and containers (main content default) */
     .element-container {
         background-color: white;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
+    }
+    /* Remove bubble effect on the sidebar */
+    [data-testid="stSidebar"] .element-container {
+        background-color: transparent !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        margin-bottom: 0.5rem !important;
     }
     
     /* Table styling */
@@ -258,10 +281,9 @@ st.markdown("""
         border-radius: 0.5rem;
     }
     
-    /* Hide Streamlit branding */
+    /* Hide Streamlit branding (keep header visible for sidebar toggle) */
     #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+
     </style>
 """, unsafe_allow_html=True)
 
