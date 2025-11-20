@@ -1,0 +1,193 @@
+PRINCIPALES PASARELAS DE PAGO - INFORMACIÓN DE PRECIOS Y COMISIONES
+=====================================================================
+
+1. STRIPE
+   URL: https://stripe.com
+   Comisión: 2.9% + $0.30 USD por transacción (tarjetas en línea)
+   Comisión Internacional: 3.9% + $0.30 USD por transacción
+   Precio Fijo: No hay cuota mensual (solo pago por uso)
+   Notas: Comisiones adicionales para pagos internacionales y tarjetas extranjeras
+
+2. PAYPAL
+   URL: https://www.paypal.com
+   Comisión: 2.9% + tarifa fija (varía por país)
+   Comisión Internacional: 4.4% + tarifa fija
+   Precio Fijo: Sin cuota mensual para PayPal Standard
+   Notas: PayPal Pro tiene cuota mensual de $30 USD. Tarifas varían según el país
+
+3. MERCADOPAGO
+   URL: https://www.mercadopago.com
+   Comisión: Aproximadamente 3.99% + tarifa fija por transacción
+   Comisión Internacional: Varía según el país
+   Precio Fijo: Sin cuota mensual
+   Notas: Popular en Latinoamérica. Comisiones varían según el país y tipo de pago
+
+4. SQUARE
+   URL: https://squareup.com
+   Comisión: 2.6% + $0.10 USD por transacción (pagos en línea)
+   Comisión Internacional: Varía
+   Precio Fijo: Sin cuota mensual para pagos en línea
+   Notas: Diferentes tarifas para pagos presenciales (2.6% + $0.10) y en línea
+
+5. ADYEN
+   URL: https://www.adyen.com
+   Comisión: Negociable según volumen (típicamente 0.6% - 1.5% + tarifa fija)
+   Comisión Internacional: Varía según región
+   Precio Fijo: Puede incluir cuota mensual para empresas grandes
+   Notas: Enfocado en empresas grandes con alto volumen de transacciones
+
+6. AUTHORIZE.NET
+   URL: https://www.authorize.net
+   Comisión: Depende del procesador de pagos utilizado
+   Comisión Internacional: Varía
+   Precio Fijo: $25 USD/mes + tarifas del procesador
+   Notas: Gateway de pago que requiere un procesador de pagos separado
+
+7. BRAINTREE (PayPal)
+   URL: https://www.braintreepayments.com
+   Comisión: 2.9% + $0.30 USD por transacción
+   Comisión Internacional: 3.9% + $0.30 USD
+   Precio Fijo: Sin cuota mensual
+   Notas: Propiedad de PayPal, integración con PayPal y otros métodos de pago
+
+8. 2CHECKOUT (Verifone)
+   URL: https://www.2checkout.com
+   Comisión: 3.5% + $0.35 USD por transacción
+   Comisión Internacional: Varía
+   Precio Fijo: Sin cuota mensual
+   Notas: Enfocado en ventas internacionales, soporta múltiples monedas
+
+9. PAYU
+   URL: https://www.payu.com
+   Comisión: Varía por país (típicamente 3.5% - 4.5%)
+   Comisión Internacional: Varía
+   Precio Fijo: Sin cuota mensual
+   Notas: Popular en Europa del Este y Latinoamérica
+
+10. KLARNA
+    URL: https://www.klarna.com
+    Comisión: Negociable (típicamente 2.9% - 3.5%)
+    Comisión Internacional: Varía
+    Precio Fijo: Puede incluir cuota mensual
+    Notas: Especializado en pagos a plazos y compra ahora paga después
+
+11. WORLDPAY
+    URL: https://www.worldpay.com
+    Comisión: Negociable según volumen
+    Comisión Internacional: Varía
+    Precio Fijo: Puede incluir cuota mensual
+    Notas: Una de las pasarelas más grandes del mundo, para empresas grandes
+
+12. PAYONEER
+    URL: https://www.payoneer.com
+    Comisión: 3% por transacción
+    Comisión Internacional: Varía
+    Precio Fijo: Sin cuota mensual
+    Notas: Enfocado en pagos internacionales y freelancers
+
+13. RAZORPAY
+    URL: https://razorpay.com
+    Comisión: 2% por transacción (India)
+    Comisión Internacional: Varía
+    Precio Fijo: Sin cuota mensual
+    Notas: Popular en India, expandiéndose internacionalmente
+
+14. MOLLIE
+    URL: https://www.mollie.com
+    Comisión: Varía por método de pago (típicamente 1.4% - 2.8%)
+    Comisión Internacional: Varía
+    Precio Fijo: Sin cuota mensual
+    Notas: Popular en Europa, especialmente en Países Bajos
+
+15. CHECKOUT.COM
+    URL: https://www.checkout.com
+    Comisión: Negociable (típicamente 0.8% - 1.2% + tarifa fija)
+    Comisión Internacional: Varía
+    Precio Fijo: Puede incluir cuota mensual
+    Notas: Enfocado en empresas grandes con alto volumen
+
+16. FISERV
+    URL: https://www.fiserv.com
+    Comisión: Negociable según volumen
+    Comisión Internacional: Varía
+    Precio Fijo: Puede incluir cuota mensual
+    Notas: Soluciones empresariales para procesamiento de pagos
+
+17. PAYSAFECARD
+    URL: https://www.paysafecard.com
+    Comisión: Negociable
+    Comisión Internacional: Varía
+    Precio Fijo: Puede incluir cuota mensual
+    Notas: Especializado en pagos prepagados y sin tarjeta
+
+18. SKRILL
+    URL: https://www.skrill.com
+    Comisión: 2.9% por transacción
+    Comisión Internacional: Varía
+    Precio Fijo: Sin cuota mensual
+    Notas: Wallet digital y pasarela de pago
+
+19. AMAZON PAY
+    URL: https://pay.amazon.com
+    Comisión: 2.9% + $0.30 USD por transacción
+    Comisión Internacional: Varía
+    Precio Fijo: Sin cuota mensual
+    Notas: Integración con cuentas de Amazon
+
+20. APPLE PAY
+    URL: https://www.apple.com/apple-pay
+    Comisión: No cobra directamente (usa procesador subyacente)
+    Comisión Internacional: Depende del procesador
+    Precio Fijo: Sin cuota mensual
+    Notas: Método de pago que usa el procesador de pagos del comerciante
+
+NOTAS IMPORTANTES:
+==================
+- Las comisiones pueden variar según el volumen de transacciones
+- Muchas pasarelas ofrecen descuentos para empresas con alto volumen
+- Las tarifas internacionales suelen ser más altas
+- Algunas pasarelas cobran tarifas adicionales por reembolsos o disputas
+- Los precios pueden variar según el país y la moneda
+- Se recomienda contactar directamente a cada pasarela para obtener precios exactos
+- Fecha de información: 2024 (verificar actualizaciones en los sitios oficiales)
+
+
+
+
+Extras:
+https://epayco.com/tarifas/
+https://www.khipu.com
+https://bamboopaymentsystems.com
+https://www.dlocal.com
+https://www.rebill.com
+https://www.recurrente.com/precios
+https://pixelpay.com
+https://apibank.bind.com.ar
+https://card2crypto.org/about-us/
+https://kyrrex.com/global/payments
+https://www.maxelpay.com
+https://onvopay.com
+https://segpay.com/verticals/high-risk/
+https://www.paddle.com
+https://dodopayments.com
+https://corporate.payu.com/mexico/
+https://bold.co
+https://dlocalgo.com/
+https://customer.international.pagseguro.com/es
+https://wompi.com/es/co/
+https://www.adyen.com/
+https://www.ebanx.com/en/
+https://web.flow.cl/es-mx/tarifas/
+https://etpay.com/mx-es/tarifas
+https://www.khipu.com
+https://www.gocuotas.com
+https://www.zelle.com
+https://www.clinpays.com
+https://www.fiserv.com.mx
+https://antel.com.uy/web/antel-pagos/personas
+https://prometeoapi.com
+https://www.airtm.com/es/
+https://www.astropay.com/es/plataforma
+https://www.lemonsqueezy.com/pricing
+https://www.easypaydirect.com/merchant-accounts/high-risk-credit-card-processing
+https://www.mobbex.com
