@@ -395,123 +395,109 @@ def render_dashboard():
 
 
 def render_prediction_chart():
-    """Render prediction chart with historical data, prediction line, and confidence interval"""
-    prediction_data = data_service.get_prediction_data()
+    """Render prediction chart with multiple lines, one highlighted in yellow"""
+    # Invented data for multiple prediction lines
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    # Forecasting starts at index 9 (October)
+    forecast_start_idx = 9
+    historical_months = months[:forecast_start_idx]
+    prediction_months = months[forecast_start_idx:]
+    
+    # Multiple prediction models/lines with invented data
+    predictions = {
+        "Model A": {
+            "historical": [120, 125, 130, 128, 135, 140, 138, 142, 145],
+            "prediction": [148, 150, 152],
+            "color": "#FFD700",  # Yellow - highlighted
+            "highlighted": True
+        },
+        "Model B": {
+            "historical": [110, 115, 120, 118, 125, 130, 128, 132, 135],
+            "prediction": [138, 140, 142],
+            "color": "#9CA3AF",  # Gray
+            "highlighted": False
+        },
+        "Model C": {
+            "historical": [100, 105, 110, 108, 115, 120, 118, 122, 125],
+            "prediction": [128, 130, 132],
+            "color": "#9CA3AF",  # Gray
+            "highlighted": False
+        },
+        "Model D": {
+            "historical": [115, 120, 125, 123, 130, 135, 133, 137, 140],
+            "prediction": [143, 145, 147],
+            "color": "#9CA3AF",  # Gray
+            "highlighted": False
+        }
+    }
     
     fig = go.Figure()
     
-    # Whirlpool color - golden yellow
-    color = '#ffd700'
-    
-    all_months = prediction_data["months"]
-    historical_months = prediction_data["historical_months"]
-    prediction_months = prediction_data["prediction_months"]
-    
-    # Find the index where prediction starts
-    prediction_start_idx = len(historical_months)
-    
-    # Only use Whirlpool brand
-    brand_name = "WHIRLPOOL"
-    
-    if brand_name not in prediction_data["historical"]:
-        st.warning(f"Brand {brand_name} not found in prediction data.")
-        return
-    
-    # Historical data
-    hist_values = prediction_data["historical"][brand_name]
-    hist_months = historical_months
-    
-    # Prediction data
-    pred_values = prediction_data["prediction"][brand_name]
-    upper_values = prediction_data["upper_bound"][brand_name]
-    lower_values = prediction_data["lower_bound"][brand_name]
-    
-    # Add historical line (solid)
-    fig.add_trace(go.Scatter(
-        x=hist_months,
-        y=hist_values,
-        mode='lines',
-        name=f"{brand_name} (Historical)",
-        line=dict(
-            color=color,
-            width=2.5
-        ),
-        showlegend=False,
-        hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Value: %{y}<extra></extra>'
-    ))
-    
-    # Add prediction line (dashed) - only the prediction part
-    fig.add_trace(go.Scatter(
-        x=prediction_months,
-        y=pred_values,
-        mode='lines',
-        name=f"{brand_name} (Prediction)",
-        line=dict(
-            color=color,
-            width=2.5,
-            dash='dash'
-        ),
-        hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Predicted: %{y}<extra></extra>'
-    ))
-    
-    # Add connection line between historical and prediction (thin, same color)
-    if hist_values and pred_values:
+    # Add lines for each model
+    for model_name, model_data in predictions.items():
+        hist_values = model_data["historical"]
+        pred_values = model_data["prediction"]
+        line_color = model_data["color"]
+        is_highlighted = model_data["highlighted"]
+        line_width = 7 if is_highlighted else 5
+        
+        # Combine historical and prediction for full line
+        all_values = hist_values + pred_values
+        all_months = historical_months + prediction_months
+        
+        # Add historical part (solid line)
         fig.add_trace(go.Scatter(
-            x=[hist_months[-1], prediction_months[0]],
-            y=[hist_values[-1], pred_values[0]],
+            x=historical_months,
+            y=hist_values,
             mode='lines',
+            name=model_name,
             line=dict(
-                color=color,
-                width=1,
+                color=line_color,
+                width=line_width
+            ),
+            hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Value: %{y}<extra></extra>'
+        ))
+        
+        # Add prediction part (dotted line)
+        fig.add_trace(go.Scatter(
+            x=prediction_months,
+            y=pred_values,
+            mode='lines',
+            name=f"{model_name} (Forecast)",
+            line=dict(
+                color=line_color,
+                width=line_width,
                 dash='dot'
             ),
             showlegend=False,
-            hoverinfo='skip'
+            hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Predicted: %{y}<extra></extra>'
         ))
-    
-    # Create gradient effect for confidence interval
-    # Use multiple layers with decreasing opacity to create smooth gradient
-    confidence_x = prediction_months
-    confidence_upper = upper_values
-    confidence_lower = lower_values
-    
-    # Number of gradient layers (more layers = smoother gradient)
-    num_layers = 15
-    
-    # Create gradient by adding multiple overlapping traces with decreasing opacity
-    # Draw from outer to inner so inner layers (drawn last) appear darker
-    for layer in range(num_layers - 1, -1, -1):  # Reverse order: outer to inner
-        # Calculate how far this layer extends (0 = prediction line, 1 = confidence bounds)
-        factor = (layer + 1) / num_layers
         
-        # Calculate the boundaries for this layer (from center to factor distance)
-        layer_upper = [pred + (upper - pred) * factor for pred, upper in zip(pred_values, confidence_upper)]
-        layer_lower = [pred - (pred - lower) * factor for pred, lower in zip(pred_values, confidence_lower)]
-        
-        # Opacity increases toward center for gradient effect
-        # Higher opacity near center (smaller factor), lower at edges (larger factor)
-        # Use exponential decay for smooth gradient
-        opacity = 0.5 * (1 - factor) ** 2.2  # Smooth gradient from center to edge
-        
-        if opacity > 0.01:  # Only add layers with visible opacity
-            # Create filled area from center to this layer's boundary
+        # Add connection line between historical and prediction
+        if hist_values and pred_values:
             fig.add_trace(go.Scatter(
-                x=confidence_x + confidence_x[::-1],
-                y=layer_upper + layer_lower[::-1],
-                fill='toself',
-                fillcolor=f'rgba(255, 215, 0, {opacity:.3f})',  # Golden yellow with gradient opacity
-                line=dict(color='rgba(255,255,255,0)'),
-                name=f"{brand_name} (Confidence Interval)",
+                x=[historical_months[-1], prediction_months[0]],
+                y=[hist_values[-1], pred_values[0]],
+                mode='lines',
+                line=dict(
+                    color=line_color,
+                    width=line_width,
+                    dash='dot'
+                ),
                 showlegend=False,
                 hoverinfo='skip'
             ))
+    
+    # Update layout
+    forecast_start_month = historical_months[-1]
     
     fig.update_layout(
         title="Sales Prediction with Confidence Interval",
         xaxis_title="Month",
         yaxis_title="Sales",
         hovermode='x unified',
-        height=400,
+        height=550,  # Same height as Sellout chart
         showlegend=True,
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -533,14 +519,14 @@ def render_prediction_chart():
             gridwidth=1
         ),
         shapes=[
-            # Vertical line to separate historical from prediction
+            # Vertical line to mark the start of forecasting
             dict(
                 type="line",
                 xref="x",
                 yref="paper",
-                x0=historical_months[-1],
+                x0=forecast_start_month,
                 y0=0,
-                x1=historical_months[-1],
+                x1=forecast_start_month,
                 y1=1,
                 line=dict(
                     color="gray",
@@ -551,11 +537,11 @@ def render_prediction_chart():
         ],
         annotations=[
             dict(
-                x=historical_months[-1],
+                x=forecast_start_month,
                 y=0.95,
                 xref="x",
                 yref="paper",
-                text="Historical → Prediction",
+                text="Forecasting",
                 showarrow=False,
                 xanchor="right",
                 bgcolor="rgba(255,255,255,0.8)",
@@ -569,14 +555,94 @@ def render_prediction_chart():
 
 
 def render_prediction_dashboard():
-    """Render the prediction dashboard (based on the same structure)"""
+    """Render the prediction dashboard with dropdowns and full-width chart"""
     st.title("Prediction")
     
+    # Three dropdown buttons in columns
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        dropdown1 = st.selectbox(
+            "Select Option 1",
+            options=["Option A", "Option B", "Option C"],
+            key="prediction_dropdown_1"
+        )
+    
+    with col2:
+        dropdown2 = st.selectbox(
+            "Select Option 2",
+            options=["Option X", "Option Y", "Option Z"],
+            key="prediction_dropdown_2"
+        )
+    
+    with col3:
+        dropdown3 = st.selectbox(
+            "Select Option 3",
+            options=["Option 1", "Option 2", "Option 3"],
+            key="prediction_dropdown_3"
+        )
+    
+    
     # Prediction chart with historical data, prediction line, and confidence interval
+    # Full width chart
     render_prediction_chart()
     
-    st.markdown("---")
-    
-    # Brand vs Category price comparison table
-    render_brand_category_table()
 
+    
+    # Model Evaluation component
+    render_model_evaluation()
+
+
+def render_model_evaluation():
+    """Render model evaluation metrics as a simple two-column table with colors"""
+    st.markdown("### Model Evaluation")
+    
+    # Invented evaluation metrics data - simple name and value pairs
+    metrics_data = [
+        {"Metric": "R²", "Value": 0.94},
+        {"Metric": "MAE", "Value": 10.3},
+        {"Metric": "RMSE", "Value": 15.6},
+        {"Metric": "F1", "Value": 0.91}
+    ]
+    
+    df = pd.DataFrame(metrics_data)
+    
+    # Store original values for color calculation
+    original_values = df["Value"].copy()
+    
+    # Format values for display
+    for idx, row in df.iterrows():
+        if row["Metric"] in ["R²", "F1"]:
+            df.at[idx, "Value"] = f"{row['Value']:.3f}"
+        else:
+            df.at[idx, "Value"] = f"{row['Value']:.2f}"
+    
+    # Apply styling to Value column
+    def style_row(row):
+        """Style the Value cell in each row"""
+        idx = row.name
+        metric_name = metrics_data[idx]["Metric"]
+        original_val = original_values.iloc[idx]
+        
+        if metric_name in ["R²", "F1"]:
+            # Higher is better - green gradient (already 0-1 scale)
+            normalized = original_val
+        elif metric_name == "MAE":
+            # Lower is better - normalize and invert (10.3 is best, assume max is ~25)
+            normalized = max(0, min(1, 1 - (original_val / 25)))
+        elif metric_name == "RMSE":
+            # Lower is better - normalize and invert (15.6 is best, assume max is ~30)
+            normalized = max(0, min(1, 1 - (original_val / 30)))
+        else:
+            return ['', '']
+        
+        r = int(144 + (34 - 144) * normalized)
+        g = int(238 + (139 - 238) * normalized)
+        b = int(144 + (34 - 144) * normalized)
+        color = "white" if normalized > 0.7 else "black"
+        
+        return ['', f'background-color: rgb({r}, {g}, {b}); color: {color}']
+    
+    styled_df = df.style.apply(style_row, axis=1)
+    
+    st.dataframe(styled_df, use_container_width=True, height=200, hide_index=True)
