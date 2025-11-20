@@ -5,7 +5,7 @@ import streamlit as st
 import os
 import threading
 import time
-from components.dashboard import render_dashboard
+from components.dashboard import render_dashboard, render_prediction_dashboard
 from components.sku_table import render_sku_table
 from components.price_calculator import render_price_calculator
 import config
@@ -23,7 +23,7 @@ st.set_page_config(
 
 # Initialize session state for page navigation
 if 'page' not in st.session_state:
-    st.session_state.page = "dashboard"  # Start with home page for testing
+    st.session_state.page = "dashboard_performance"  # Start with dashboard performance
 
 if 'backend_started' not in st.session_state:
     st.session_state.backend_started = False
@@ -78,19 +78,22 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Chip-like navigation
-    is_dashboard = st.session_state.page == "dashboard"
+    # Chip-like navigation - 3 tabs
+    is_dashboard_perf = st.session_state.page == "dashboard_performance"
+    is_prediction = st.session_state.page == "prediction"
     is_tables = st.session_state.page == "tables"
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Dashboard", width='stretch', type="primary" if is_dashboard else "secondary"):
-            st.session_state.page = "dashboard"
-            st.rerun()
-    with col2:
-        if st.button("Tables", width='stretch', type="primary" if is_tables else "secondary"):
-            st.session_state.page = "tables"
-            st.rerun()
+    if st.button("Dashboard Performance", use_container_width=True, type="primary" if is_dashboard_perf else "secondary"):
+        st.session_state.page = "dashboard_performance"
+        st.rerun()
+    
+    if st.button("Prediction", use_container_width=True, type="primary" if is_prediction else "secondary"):
+        st.session_state.page = "prediction"
+        st.rerun()
+    
+    if st.button("Tables", use_container_width=True, type="primary" if is_tables else "secondary"):
+        st.session_state.page = "tables"
+        st.rerun()
 
     st.markdown("---")
 
@@ -264,14 +267,18 @@ if st.session_state.page == "home":
     st.markdown("---")
     st.markdown("**Página actual:** " + st.session_state.page)
 
-elif st.session_state.page == "dashboard":
+elif st.session_state.page == "dashboard_performance":
+    # Single column layout: main content only
+    render_dashboard()
+    st.markdown("---")
+
+elif st.session_state.page == "prediction":
     # Three column layout: main content and calculator
     col1, col2 = st.columns([2.5, 1])
     
     with col1:
-        render_dashboard()
+        render_prediction_dashboard()
         st.markdown("---")
-        render_sku_table()
     
     with col2:
         render_price_calculator()

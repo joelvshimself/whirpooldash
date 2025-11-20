@@ -20,9 +20,13 @@ class DataSource(ABC):
         pass
     
     @abstractmethod
-    def get_sales_data(self) -> Dict[str, Any]:
+    def get_sales_data(self, year: Optional[int] = None, quarter: Optional[int] = None) -> Dict[str, Any]:
         """
         Returns sales chart data.
+        
+        Args:
+            year: Year to filter data (optional)
+            quarter: Quarter (1-4) to filter data (optional, requires year)
         
         Returns:
             Dict with 'months' (list) and 'values' (list of dicts with series data)
@@ -73,6 +77,31 @@ class DataSource(ABC):
             
         Returns:
             List of dicts with historical price data
+        """
+        pass
+    
+    @abstractmethod
+    def get_brand_category_prices(self) -> Dict[str, Any]:
+        """
+        Returns price data by brand and category.
+        
+        Returns:
+            Dict with 'brands' (list), 'categories' (list), and 'data' (list of dicts with brand, category, price)
+        """
+        pass
+    
+    @abstractmethod
+    def get_prediction_data(self, brand: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Returns prediction data with historical and forecast values.
+        
+        Args:
+            brand: Optional brand name to filter (if None, returns data for all brands)
+        
+        Returns:
+            Dict with 'months' (list), 'historical' (dict with brand data), 
+            'prediction' (dict with predicted values), 'upper_bound' (dict with upper confidence),
+            'lower_bound' (dict with lower confidence)
         """
         pass
 
