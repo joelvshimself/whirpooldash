@@ -10,6 +10,10 @@ load_dotenv()
 
 # Data Source Configuration
 DATA_SOURCE_TYPE = os.getenv("DATA_SOURCE_TYPE", "mock")  # "mock" or "database"
+POSTGRES_CONNECTION_STRING = os.getenv(
+    "POSTGRES_CONNECTION_STRING",
+    "postgresql://postgres:postgres@streamlit-postgres.postgres.database.azure.com/postgres?sslmode=require"
+)
 
 # API Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")

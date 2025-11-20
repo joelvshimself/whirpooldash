@@ -6,6 +6,7 @@ import os
 import threading
 import time
 from components.dashboard import render_dashboard, render_prediction_dashboard
+from components.market_performance import render_market_performance
 from components.sku_table import render_sku_table
 from components.price_calculator import render_price_calculator
 import config
@@ -80,18 +81,39 @@ with st.sidebar:
 
     # Chip-like navigation - 3 tabs
     is_dashboard_perf = st.session_state.page == "dashboard_performance"
+    is_market_perf = st.session_state.page == "market_performance"
     is_prediction = st.session_state.page == "prediction"
     is_tables = st.session_state.page == "tables"
 
-    if st.button("Dashboard Performance", use_container_width=True, type="primary" if is_dashboard_perf else "secondary"):
+    if st.button(
+        "Dashboard Performance",
+        width="stretch",
+        type="primary" if is_dashboard_perf else "secondary",
+    ):
         st.session_state.page = "dashboard_performance"
         st.rerun()
     
-    if st.button("Prediction", use_container_width=True, type="primary" if is_prediction else "secondary"):
+    if st.button(
+        "Market Performance",
+        width="stretch",
+        type="primary" if is_market_perf else "secondary",
+    ):
+        st.session_state.page = "market_performance"
+        st.rerun()
+    
+    if st.button(
+        "Prediction",
+        width="stretch",
+        type="primary" if is_prediction else "secondary",
+    ):
         st.session_state.page = "prediction"
         st.rerun()
     
-    if st.button("Tables", use_container_width=True, type="primary" if is_tables else "secondary"):
+    if st.button(
+        "Tables",
+        width="stretch",
+        type="primary" if is_tables else "secondary",
+    ):
         st.session_state.page = "tables"
         st.rerun()
 
@@ -270,6 +292,10 @@ if st.session_state.page == "home":
 elif st.session_state.page == "dashboard_performance":
     # Single column layout: main content only
     render_dashboard()
+    st.markdown("---")
+
+elif st.session_state.page == "market_performance":
+    render_market_performance()
     st.markdown("---")
 
 elif st.session_state.page == "prediction":
