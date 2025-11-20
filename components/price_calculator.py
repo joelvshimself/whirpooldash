@@ -19,14 +19,6 @@ def render_price_calculator():
     if 'price_calc_data' not in st.session_state:
         st.session_state.price_calc_data = []
     
-    # Light/minimal styling (remove dark panel)
-    st.markdown("""
-    <style>
-    .pc-card { border: 1px solid #EEEEEE; border-radius: 8px; padding: 16px; background: #FFFFFF; }
-    .pc-actions { margin-top: 8px; }
-    .pc-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }
-    </style>
-    """, unsafe_allow_html=True)
     
     # Title
     st.markdown("### Price Calculator")
