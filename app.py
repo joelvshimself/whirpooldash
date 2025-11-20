@@ -299,15 +299,8 @@ elif st.session_state.page == "market_performance":
     st.markdown("---")
 
 elif st.session_state.page == "prediction":
-    # Three column layout: main content and calculator
-    col1, col2 = st.columns([2.5, 1])
-    
-    with col1:
-        render_prediction_dashboard()
-        st.markdown("---")
-    
-    with col2:
-        render_price_calculator()
+    # Full width layout: prediction dashboard only
+    render_prediction_dashboard()
 
 elif st.session_state.page == "tables":
     st.title("Tables")
