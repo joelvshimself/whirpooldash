@@ -25,14 +25,22 @@ class DataService:
     
     def _initialize_data_source(self):
         """Initialize the appropriate data source based on configuration"""
-        if config.DATA_SOURCE_TYPE == "mock":
+        data_source_type = config.DATA_SOURCE_TYPE.lower() if config.DATA_SOURCE_TYPE else "mock"
+        
+        if data_source_type == "mock":
             self._data_source = MockDataSource()
-        elif config.DATA_SOURCE_TYPE == "database":
+        elif data_source_type == "database":
             # Future: from data.database_data_source import DatabaseDataSource
             # self._data_source = DatabaseDataSource()
-            raise NotImplementedError("Database data source not yet implemented")
+            # Fallback to mock if database is not implemented
+            import warnings
+            warnings.warn("Database data source not yet implemented. Falling back to mock data source.")
+            self._data_source = MockDataSource()
         else:
-            raise ValueError(f"Unknown data source type: {config.DATA_SOURCE_TYPE}")
+            # Unknown type, fallback to mock
+            import warnings
+            warnings.warn(f"Unknown data source type: {config.DATA_SOURCE_TYPE}. Falling back to mock data source.")
+            self._data_source = MockDataSource()
     
     def get_data_source(self) -> DataSource:
         """Get the current data source instance"""
