@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
+import config
+from services.run_model import predict_price_scenario_xgb_from_pickle
 from services.data_service import DataService
 from utils.helpers import format_currency, format_number, format_percentage
 
@@ -394,111 +396,41 @@ def render_dashboard():
     
 
 
-def render_prediction_chart():
-    """Render prediction chart with multiple lines, one highlighted in yellow"""
-    # Invented data for multiple prediction lines
-    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+def render_prediction_chart(selected_sku: str, forecast_date, predictions_df: pd.DataFrame):
+    """Render the prediction chart purely from model outputs."""
+    if predictions_df is None or predictions_df.empty:
+        st.info("No prediction data available to plot.")
+        return
     
-    # Forecasting starts at index 9 (October)
-    forecast_start_idx = 9
-    historical_months = months[:forecast_start_idx]
-    prediction_months = months[forecast_start_idx:]
+    date_label = forecast_date.strftime("%Y-%m-%d") if hasattr(forecast_date, "strftime") else str(forecast_date)
+    chart_df = predictions_df.copy()
+    chart_df = chart_df.sort_values('TP')
+    partner_labels = chart_df['TP'].tolist()
+    price_values = chart_df['Predicted_Real_Price'].astype(float).tolist()
     
-    # Multiple prediction models/lines with invented data
-    predictions = {
-        "Model A": {
-            "historical": [120, 125, 130, 128, 135, 140, 138, 142, 145],
-            "prediction": [148, 150, 152],
-            "color": "#FFD700",  # Yellow - highlighted
-            "highlighted": True
-        },
-        "Model B": {
-            "historical": [110, 115, 120, 118, 125, 130, 128, 132, 135],
-            "prediction": [138, 140, 142],
-            "color": "#9CA3AF",  # Gray
-            "highlighted": False
-        },
-        "Model C": {
-            "historical": [100, 105, 110, 108, 115, 120, 118, 122, 125],
-            "prediction": [128, 130, 132],
-            "color": "#9CA3AF",  # Gray
-            "highlighted": False
-        },
-        "Model D": {
-            "historical": [115, 120, 125, 123, 130, 135, 133, 137, 140],
-            "prediction": [143, 145, 147],
-            "color": "#9CA3AF",  # Gray
-            "highlighted": False
-        }
-    }
-    
+    primary_color = config.CHART_COLORS.get("primary", "#FF6B35")
     fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=partner_labels,
+        y=price_values,
+        mode='lines+markers',
+        name=f"{selected_sku} ({date_label})",
+        line=dict(color=primary_color, width=6),
+        marker=dict(size=12, color=primary_color, line=dict(color='white', width=2)),
+        hovertemplate='TP: %{x}<br>Price: %{y}<br>SKU: %{text}<extra></extra>',
+        text=[selected_sku] * len(partner_labels)
+    ))
     
-    # Add lines for each model
-    for model_name, model_data in predictions.items():
-        hist_values = model_data["historical"]
-        pred_values = model_data["prediction"]
-        line_color = model_data["color"]
-        is_highlighted = model_data["highlighted"]
-        line_width = 7 if is_highlighted else 5
-        
-        # Combine historical and prediction for full line
-        all_values = hist_values + pred_values
-        all_months = historical_months + prediction_months
-        
-        # Add historical part (solid line)
-        fig.add_trace(go.Scatter(
-            x=historical_months,
-            y=hist_values,
-            mode='lines',
-            name=model_name,
-            line=dict(
-                color=line_color,
-                width=line_width
-            ),
-            hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Value: %{y}<extra></extra>'
-        ))
-        
-        # Add prediction part (dotted line)
-        fig.add_trace(go.Scatter(
-            x=prediction_months,
-            y=pred_values,
-            mode='lines',
-            name=f"{model_name} (Forecast)",
-            line=dict(
-                color=line_color,
-                width=line_width,
-                dash='dot'
-            ),
-            showlegend=False,
-            hovertemplate='<b>%{fullData.name}</b><br>Month: %{x}<br>Predicted: %{y}<extra></extra>'
-        ))
-        
-        # Add connection line between historical and prediction
-        if hist_values and pred_values:
-            fig.add_trace(go.Scatter(
-                x=[historical_months[-1], prediction_months[0]],
-                y=[hist_values[-1], pred_values[0]],
-                mode='lines',
-                line=dict(
-                    color=line_color,
-                    width=line_width,
-                    dash='dot'
-                ),
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-    
-    # Update layout
-    forecast_start_month = historical_months[-1]
+    max_price = max(price_values) if price_values else 0
+    y_max = max_price * 1.1 if max_price > 0 else 1
     
     fig.update_layout(
-        title="Sales Prediction with Confidence Interval",
-        xaxis_title="Month",
-        yaxis_title="Sales",
+        title=f"Predicted Price by Partner - {selected_sku}",
+        xaxis_title="Training Partner (TP)",
+        yaxis_title="Predicted Price",
         hovermode='x unified',
-        height=550,  # Same height as Sellout chart
-        showlegend=True,
+        height=550,
+        showlegend=False,
         plot_bgcolor='white',
         paper_bgcolor='white',
         legend=dict(
@@ -511,83 +443,96 @@ def render_prediction_chart():
         xaxis=dict(
             showgrid=True,
             gridcolor='rgba(0,0,0,0.1)',
-            gridwidth=1
+            gridwidth=1,
+            type='category'
         ),
         yaxis=dict(
             showgrid=True,
             gridcolor='rgba(0,0,0,0.1)',
-            gridwidth=1
-        ),
-        shapes=[
-            # Vertical line to mark the start of forecasting
-            dict(
-                type="line",
-                xref="x",
-                yref="paper",
-                x0=forecast_start_month,
-                y0=0,
-                x1=forecast_start_month,
-                y1=1,
-                line=dict(
-                    color="gray",
-                    width=2,
-                    dash="dot"
-                )
-            )
-        ],
-        annotations=[
-            dict(
-                x=forecast_start_month,
-                y=0.95,
-                xref="x",
-                yref="paper",
-                text="Forecasting",
-                showarrow=False,
-                xanchor="right",
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="gray",
-                borderwidth=1
-            )
-        ]
+            gridwidth=1,
+            range=[0, y_max]
+        )
     )
     
     st.plotly_chart(fig, use_container_width=True)
 
 
+def render_prediction_table(predictions_df: pd.DataFrame):
+    """Show raw prediction results for transparency."""
+    if predictions_df is None or predictions_df.empty:
+        return
+    
+    display_cols = ['SKU', 'TP', 'CATEGORY', 'Predicted_Date', 'Predicted_Real_Price', 'Adjusted_for_Inflation']
+    table_df = predictions_df[display_cols].copy()
+    table_df['Predicted_Real_Price'] = table_df['Predicted_Real_Price'].map(lambda x: f"${x:,.2f}")
+    
+    st.markdown("### Prediction Output")
+    st.dataframe(table_df, use_container_width=True, hide_index=True)
+
+
 def render_prediction_dashboard():
-    """Render the prediction dashboard with dropdowns and full-width chart"""
+    """Render the prediction dashboard with focused SKU/date inputs and chart"""
     st.title("Prediction")
     
-    # Three dropdown buttons in columns
-    col1, col2, col3 = st.columns(3)
+    if 'prediction_inputs' not in st.session_state:
+        st.session_state.prediction_inputs = {
+            "sku": config.DEFAULT_SKUS[0],
+            "date": datetime.today().date()
+        }
+        st.session_state.prediction_ran = False
+    if 'prediction_results' not in st.session_state:
+        st.session_state.prediction_results = None
+    
+    col1, col2 = st.columns([2, 1], gap="medium")
     
     with col1:
-        dropdown1 = st.selectbox(
-            "Select Option 1",
-            options=["Option A", "Option B", "Option C"],
-            key="prediction_dropdown_1"
+        selected_sku = st.selectbox(
+            "SKU",
+            options=config.DEFAULT_SKUS,
+            key="prediction_sku"
         )
     
     with col2:
-        dropdown2 = st.selectbox(
-            "Select Option 2",
-            options=["Option X", "Option Y", "Option Z"],
-            key="prediction_dropdown_2"
+        forecast_date = st.date_input(
+            "Forecast Date",
+            value=datetime.today().date(),
+            key="prediction_forecast_date"
         )
     
-    with col3:
-        dropdown3 = st.selectbox(
-            "Select Option 3",
-            options=["Option 1", "Option 2", "Option 3"],
-            key="prediction_dropdown_3"
-        )
+    run_col, _ = st.columns([1, 4])
+    with run_col:
+        if st.button("Run Prediction", type="primary", use_container_width=True, key="prediction_run_button"):
+            with st.spinner("Running XGBoost prediction..."):
+                try:
+                    forecast_date_str = forecast_date.strftime("%Y-%m-%d")
+                    predictions_df = predict_price_scenario_xgb_from_pickle(
+                        sku_list=[selected_sku],
+                        date_input=forecast_date_str
+                    )
+                    if predictions_df is None or predictions_df.empty:
+                        st.warning("No predictions returned for the selected SKU.")
+                        st.session_state.prediction_ran = False
+                        st.session_state.prediction_results = None
+                    else:
+                        st.session_state.prediction_inputs = {
+                            "sku": selected_sku,
+                            "date": forecast_date
+                        }
+                        st.session_state.prediction_results = predictions_df
+                        st.session_state.prediction_ran = True
+                except Exception as exc:
+                    st.error(f"Prediction failed: {exc}")
+                    st.session_state.prediction_ran = False
+                    st.session_state.prediction_results = None
     
+    predictions_df = st.session_state.prediction_results
+    if st.session_state.get("prediction_ran") and predictions_df is not None:
+        inputs = st.session_state.prediction_inputs
+        render_prediction_chart(inputs["sku"], inputs["date"], predictions_df)
+        render_prediction_table(predictions_df)
+    else:
+        st.info("Selecciona un SKU, una fecha objetivo y corre la predicción para ver el resultado del modelo.")
     
-    # Prediction chart with historical data, prediction line, and confidence interval
-    # Full width chart
-    render_prediction_chart()
-    
-
     
     # Model Evaluation component
     render_model_evaluation()
