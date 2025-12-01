@@ -43,7 +43,8 @@ def render_price_calculator():
             sku = st.selectbox(
                 "SKU",
                 options=config.DEFAULT_SKUS,
-                key="pc_sku"
+                key="pc_sku",
+                help="Select a SKU from the validated list"
             )
             region = st.selectbox(
                 "Region",
