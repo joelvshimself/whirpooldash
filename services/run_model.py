@@ -1,3 +1,4 @@
+import logging
 import pickle
 from functools import lru_cache
 from io import BytesIO
@@ -8,6 +9,8 @@ import pandas as pd
 import requests
 import xgboost  # noqa: F401 - ensures pickle can import xgboost objects
 
+logger = logging.getLogger(__name__)
+
 
 @lru_cache(maxsize=16)
 def _load_remote_pickle(url: str):
@@ -15,9 +18,12 @@ def _load_remote_pickle(url: str):
     Download a pickle file from Azure Blob Storage and deserialize it.
     Cached to avoid repeated downloads across reruns.
     """
+    logger.info("Downloading pickle resource from %s", url)
     response = requests.get(url, timeout=60)
     response.raise_for_status()
-    return pickle.load(BytesIO(response.content))
+    obj = pickle.load(BytesIO(response.content))
+    logger.debug("Loaded pickle from %s (type=%s)", url, type(obj))
+    return obj
 
 
 def predict_price_scenario_xgb_from_pickle(
@@ -43,6 +49,7 @@ def predict_price_scenario_xgb_from_pickle(
     Returns:
         DataFrame con predicciones listas para graficarse
     """
+    logger.info("Starting XGBoost prediction for SKUs=%s, date=%s", sku_list, date_input)
     # Cargar recursos desde Azure Blob
     trained_model = _load_remote_pickle(model_path)
     X_encoded_columns = _load_remote_pickle(columns_path)
@@ -57,7 +64,7 @@ def predict_price_scenario_xgb_from_pickle(
     )
     
     if df_latest.empty:
-        print("⚠️ No data found for given SKUs.")
+        logger.warning("No data found for SKUs=%s", sku_list)
         return None
 
     X_future = df_latest[['INV', 'QTY', 'GROSS_SALES', 'SKU', 'TP', 'CATEGORY']].copy()
@@ -85,4 +92,10 @@ def predict_price_scenario_xgb_from_pickle(
     )
 
     result = result.sort_values(['CATEGORY', 'SKU', 'TP']).reset_index(drop=True)
+    logger.info(
+        "Prediction ready: %d rows (SKU=%s, date=%s)",
+        len(result),
+        sku_list,
+        date_input,
+    )
     return result
