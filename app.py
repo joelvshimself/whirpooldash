@@ -83,7 +83,6 @@ with st.sidebar:
     is_dashboard_perf = st.session_state.page == "dashboard_performance"
     is_market_perf = st.session_state.page == "market_performance"
     is_prediction = st.session_state.page == "prediction"
-    is_tables = st.session_state.page == "tables"
 
     if st.button(
         "Dashboard Performance",
@@ -108,23 +107,6 @@ with st.sidebar:
     ):
         st.session_state.page = "prediction"
         st.rerun()
-    
-    if st.button(
-        "Tables",
-        width="stretch",
-        type="primary" if is_tables else "secondary",
-    ):
-        st.session_state.page = "tables"
-        st.rerun()
-
-    st.markdown("---")
-
-    # Account/profile section
-    st.markdown("#### Account")
-    st.caption("Signed in as: user@example.com")
-    if st.button("Logout", width='stretch'):
-        # Simple placeholder action for logout
-        st.success("Logged out")
 
 # Custom CSS
 st.markdown("""
@@ -301,11 +283,6 @@ elif st.session_state.page == "market_performance":
 elif st.session_state.page == "prediction":
     # Full width layout: prediction dashboard only
     render_prediction_dashboard()
-
-elif st.session_state.page == "tables":
-    st.title("Tables")
-    st.info("Tables page - Coming soon")
-    render_sku_table()
 
 else:
     st.title("Home - Prueba 1")

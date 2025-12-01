@@ -5,7 +5,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 from services.run_model import predict_price_scenario_xgb_from_pickle
 from services.data_service import DataService
@@ -396,41 +396,85 @@ def render_dashboard():
     
 
 
-def render_prediction_chart(selected_sku: str, forecast_date, predictions_df: pd.DataFrame):
-    """Render the prediction chart purely from model outputs."""
+def render_prediction_chart(selected_sku: str, forecast_date_range, predictions_df: pd.DataFrame):
+    """Render the prediction chart with time on x-axis and one line per Trading Partner with orange gradients."""
     if predictions_df is None or predictions_df.empty:
         st.info("No prediction data available to plot.")
         return
     
-    date_label = forecast_date.strftime("%Y-%m-%d") if hasattr(forecast_date, "strftime") else str(forecast_date)
     chart_df = predictions_df.copy()
-    chart_df = chart_df.sort_values('TP')
-    partner_labels = chart_df['TP'].tolist()
-    price_values = chart_df['Predicted_Real_Price'].astype(float).tolist()
     
-    primary_color = config.CHART_COLORS.get("primary", "#FF6B35")
+    # Convertir Predicted_Date a datetime si es string
+    if chart_df['Predicted_Date'].dtype == 'object':
+        chart_df['Predicted_Date'] = pd.to_datetime(chart_df['Predicted_Date'])
+    
+    # Ordenar por fecha y TP
+    chart_df = chart_df.sort_values(['Predicted_Date', 'TP'])
+    
+    # Obtener lista única de TPs
+    unique_tps = sorted(chart_df['TP'].unique())
+    num_tps = len(unique_tps)
+    
+    # Crear gradiente de naranja para los diferentes TP
+    # Colores de naranja desde más claro a más oscuro
+    orange_gradient = [
+        '#FFE5CC',  # Muy claro
+        '#FFD4A3',  # Claro
+        '#FFC380',  # Medio-claro
+        '#FFB259',  # Medio
+        '#FFA033',  # Medio-oscuro
+        '#FF8F0D',  # Oscuro
+        '#FF7F00',  # Muy oscuro
+        '#FF6B35',  # Naranja intenso
+        '#FF5722',  # Naranja rojizo
+        '#FF4500'   # Naranja rojo
+    ]
+    
+    # Si hay más TPs que colores, repetir el gradiente
+    if num_tps > len(orange_gradient):
+        orange_gradient = orange_gradient * ((num_tps // len(orange_gradient)) + 1)
+    
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=partner_labels,
-        y=price_values,
-        mode='lines+markers',
-        name=f"{selected_sku} ({date_label})",
-        line=dict(color=primary_color, width=6),
-        marker=dict(size=12, color=primary_color, line=dict(color='white', width=2)),
-        hovertemplate='TP: %{x}<br>Price: %{y}<br>SKU: %{text}<extra></extra>',
-        text=[selected_sku] * len(partner_labels)
-    ))
     
-    max_price = max(price_values) if price_values else 0
-    y_max = max_price * 1.1 if max_price > 0 else 1
+    # Agregar una línea por cada TP
+    for idx, tp in enumerate(unique_tps):
+        tp_data = chart_df[chart_df['TP'] == tp].copy()
+        tp_data = tp_data.sort_values('Predicted_Date')
+        
+        color = orange_gradient[idx % len(orange_gradient)]
+        
+        fig.add_trace(go.Scatter(
+            x=tp_data['Predicted_Date'],
+            y=tp_data['Predicted_Real_Price'].astype(float),
+            mode='lines+markers',
+            name=tp,
+            line=dict(color=color, width=4),
+            marker=dict(size=10, color=color, line=dict(color='white', width=1.5)),
+            hovertemplate=f'<b>{tp}</b><br>Date: %{{x|%Y-%m-%d}}<br>Price: $%{{y:,.2f}}<br>SKU: {selected_sku}<extra></extra>'
+        ))
+    
+    # Calcular rango de precios
+    max_price = chart_df['Predicted_Real_Price'].astype(float).max()
+    min_price = chart_df['Predicted_Real_Price'].astype(float).min()
+    price_range = max_price - min_price
+    y_max = max_price + (price_range * 0.1) if price_range > 0 else max_price * 1.1
+    y_min = min_price - (price_range * 0.1) if price_range > 0 else 0
+    
+    # Formatear rango de fechas para el título
+    if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
+        start_date = forecast_date_range[0].strftime("%Y-%m-%d") if hasattr(forecast_date_range[0], "strftime") else str(forecast_date_range[0])
+        end_date = forecast_date_range[1].strftime("%Y-%m-%d") if hasattr(forecast_date_range[1], "strftime") else str(forecast_date_range[1])
+        date_label = f"{start_date} to {end_date}"
+    else:
+        date_label = str(forecast_date_range)
     
     fig.update_layout(
-        title=f"Predicted Price by Partner - {selected_sku}",
-        xaxis_title="Training Partner (TP)",
+        title=f"Predicted Price Over Time by Trading Partner - {selected_sku}",
+        xaxis_title="Time",
         yaxis_title="Predicted Price",
         hovermode='x unified',
         height=550,
-        showlegend=False,
+        showlegend=True,
         plot_bgcolor='white',
         paper_bgcolor='white',
         legend=dict(
@@ -444,13 +488,13 @@ def render_prediction_chart(selected_sku: str, forecast_date, predictions_df: pd
             showgrid=True,
             gridcolor='rgba(0,0,0,0.1)',
             gridwidth=1,
-            type='category'
+            type='date'
         ),
         yaxis=dict(
             showgrid=True,
             gridcolor='rgba(0,0,0,0.1)',
             gridwidth=1,
-            range=[0, y_max]
+            range=[y_min, y_max]
         )
     )
     
@@ -471,13 +515,14 @@ def render_prediction_table(predictions_df: pd.DataFrame):
 
 
 def render_prediction_dashboard():
-    """Render the prediction dashboard with focused SKU/date inputs and chart"""
+    """Render the prediction dashboard with focused SKU/date range inputs and chart"""
     st.title("Prediction")
     
     if 'prediction_inputs' not in st.session_state:
+        today = datetime.today().date()
         st.session_state.prediction_inputs = {
             "sku": config.DEFAULT_SKUS[0],
-            "date": datetime.today().date()
+            "date_range": (today, today + timedelta(days=30))
         }
         st.session_state.prediction_ran = False
     if 'prediction_results' not in st.session_state:
@@ -493,10 +538,12 @@ def render_prediction_dashboard():
         )
     
     with col2:
-        forecast_date = st.date_input(
-            "Forecast Date",
-            value=datetime.today().date(),
-            key="prediction_forecast_date"
+        today = datetime.today().date()
+        default_range = st.session_state.prediction_inputs.get("date_range", (today, today + timedelta(days=30)))
+        forecast_date_range = st.date_input(
+            "Forecast Range",
+            value=default_range,
+            key="prediction_forecast_date_range"
         )
     
     run_col, _ = st.columns([1, 4])
@@ -504,10 +551,21 @@ def render_prediction_dashboard():
         if st.button("Run Prediction", type="primary", use_container_width=True, key="prediction_run_button"):
             with st.spinner("Running XGBoost prediction..."):
                 try:
-                    forecast_date_str = forecast_date.strftime("%Y-%m-%d")
+                    # Convertir rango de fechas a tupla de strings
+                    if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
+                        date_range_str = (
+                            forecast_date_range[0].strftime("%Y-%m-%d"),
+                            forecast_date_range[1].strftime("%Y-%m-%d")
+                        )
+                    else:
+                        # Si solo hay una fecha, crear un rango de un día
+                        single_date = forecast_date_range if isinstance(forecast_date_range, datetime) else forecast_date_range[0]
+                        date_str = single_date.strftime("%Y-%m-%d")
+                        date_range_str = (date_str, date_str)
+                    
                     predictions_df = predict_price_scenario_xgb_from_pickle(
                         sku_list=[selected_sku],
-                        date_input=forecast_date_str
+                        date_input=date_range_str
                     )
                     if predictions_df is None or predictions_df.empty:
                         st.warning("No predictions returned for the selected SKU.")
@@ -516,7 +574,7 @@ def render_prediction_dashboard():
                     else:
                         st.session_state.prediction_inputs = {
                             "sku": selected_sku,
-                            "date": forecast_date
+                            "date_range": forecast_date_range
                         }
                         st.session_state.prediction_results = predictions_df
                         st.session_state.prediction_ran = True
@@ -528,10 +586,9 @@ def render_prediction_dashboard():
     predictions_df = st.session_state.prediction_results
     if st.session_state.get("prediction_ran") and predictions_df is not None:
         inputs = st.session_state.prediction_inputs
-        render_prediction_chart(inputs["sku"], inputs["date"], predictions_df)
-        render_prediction_table(predictions_df)
+        render_prediction_chart(inputs["sku"], inputs["date_range"], predictions_df)
     else:
-        st.info("Selecciona un SKU, una fecha objetivo y corre la predicción para ver el resultado del modelo.")
+        st.info("Selecciona un SKU, un rango de fechas y corre la predicción para ver el resultado del modelo.")
     
     
     # Model Evaluation component
