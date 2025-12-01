@@ -2,7 +2,8 @@ import logging
 import pickle
 from functools import lru_cache
 from io import BytesIO
-from typing import List, Optional
+from typing import List, Optional, Union, Tuple
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ def _load_remote_pickle(url: str):
 
 def predict_price_scenario_xgb_from_pickle(
     sku_list: List[str],
-    date_input: str,
+    date_input: Union[str, Tuple[str, str]],
     inflation_adjustment: float = 0.0,
     model_path: str = 'https://modelstoragest.blob.core.windows.net/models/xgboost_model.pkl?sp=r&st=2025-12-01T18:33:44Z&se=2026-03-06T02:48:44Z&sv=2024-11-04&sr=b&sig=eeRT9WytrsP4aCIijJngHAskPs4WobFtkJeClwnuRxA%3D',
     columns_path: str = 'https://modelstoragest.blob.core.windows.net/data/xgb_encoded_columns.pkl?sp=r&st=2025-12-01T18:36:04Z&se=2026-03-07T02:51:04Z&sv=2024-11-04&sr=b&sig=mc4wcriw68V5Hl0%2FXDabxul3O0ottE5qwPxr48XCUkg%3D',
@@ -40,7 +41,7 @@ def predict_price_scenario_xgb_from_pickle(
     
     Args:
         sku_list: Lista de SKUs a predecir (ej: ['WFR5000D'])
-        date_input: Fecha de predicción (ej: '2025-11-18')
+        date_input: Fecha de predicción (ej: '2025-11-18') o rango de fechas (ej: ('2025-11-18', '2025-12-18'))
         inflation_adjustment: Ajuste de inflación (ej: 0.04 para +4%)
         model_path: Ruta al modelo guardado
         columns_path: Ruta a las columnas codificadas
@@ -49,7 +50,18 @@ def predict_price_scenario_xgb_from_pickle(
     Returns:
         DataFrame con predicciones listas para graficarse
     """
-    logger.info("Starting XGBoost prediction for SKUs=%s, date=%s", sku_list, date_input)
+    # Determinar si es un rango de fechas o una fecha única
+    if isinstance(date_input, tuple) and len(date_input) == 2:
+        start_date = datetime.strptime(date_input[0], '%Y-%m-%d')
+        end_date = datetime.strptime(date_input[1], '%Y-%m-%d')
+        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+        date_list = [d.strftime('%Y-%m-%d') for d in date_range]
+        logger.info("Starting XGBoost prediction for SKUs=%s, date_range=%s to %s", sku_list, date_input[0], date_input[1])
+    else:
+        # Fecha única (compatibilidad hacia atrás)
+        date_list = [date_input] if isinstance(date_input, str) else [date_input[0]]
+        logger.info("Starting XGBoost prediction for SKUs=%s, date=%s", sku_list, date_list[0])
+    
     # Cargar recursos desde Azure Blob
     trained_model = _load_remote_pickle(model_path)
     X_encoded_columns = _load_remote_pickle(columns_path)
@@ -67,6 +79,7 @@ def predict_price_scenario_xgb_from_pickle(
         logger.warning("No data found for SKUs=%s", sku_list)
         return None
 
+    # Preparar datos base para todas las predicciones
     X_future = df_latest[['INV', 'QTY', 'GROSS_SALES', 'SKU', 'TP', 'CATEGORY']].copy()
     X_future_encoded = pd.get_dummies(
         X_future, columns=['SKU', 'TP', 'CATEGORY'], drop_first=True
@@ -78,24 +91,31 @@ def predict_price_scenario_xgb_from_pickle(
 
     X_future_encoded = X_future_encoded[X_encoded_columns]
 
-    preds = trained_model.predict(X_future_encoded)
-    preds = np.maximum(preds, 0)
+    # Generar predicciones para cada fecha en el rango
+    all_results = []
+    for date_str in date_list:
+        preds = trained_model.predict(X_future_encoded)
+        preds = np.maximum(preds, 0)
 
-    if inflation_adjustment != 0:
-        preds = preds * (1 + inflation_adjustment)
+        if inflation_adjustment != 0:
+            preds = preds * (1 + inflation_adjustment)
 
-    result = df_latest[['SKU', 'CATEGORY', 'TP']].copy()
-    result['Predicted_Date'] = date_input
-    result['Predicted_Real_Price'] = preds.round(2)
-    result['Adjusted_for_Inflation'] = (
-        f"+{inflation_adjustment*100:.1f}%" if inflation_adjustment != 0 else "—"
-    )
+        result = df_latest[['SKU', 'CATEGORY', 'TP']].copy()
+        result['Predicted_Date'] = date_str
+        result['Predicted_Real_Price'] = preds.round(2)
+        result['Adjusted_for_Inflation'] = (
+            f"+{inflation_adjustment*100:.1f}%" if inflation_adjustment != 0 else "—"
+        )
+        all_results.append(result)
 
-    result = result.sort_values(['CATEGORY', 'SKU', 'TP']).reset_index(drop=True)
+    # Combinar todos los resultados
+    final_result = pd.concat(all_results, ignore_index=True)
+    final_result = final_result.sort_values(['Predicted_Date', 'CATEGORY', 'SKU', 'TP']).reset_index(drop=True)
+    
     logger.info(
-        "Prediction ready: %d rows (SKU=%s, date=%s)",
-        len(result),
+        "Prediction ready: %d rows (SKU=%s, dates=%d)",
+        len(final_result),
         sku_list,
-        date_input,
+        len(date_list),
     )
-    return result
+    return final_result

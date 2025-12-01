@@ -32,10 +32,34 @@ AZURE_BLOB_SAS_TOKEN = os.getenv(
 # Default Values
 DEFAULT_PARTNERS = ["Walmart", "Target", "Best Buy", "Home Depot", "Lowes"]
 DEFAULT_REGIONS = ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East"]
-DEFAULT_SKUS = [
-    "WH-WF100A", "WH-WF200B", "WH-WF300C", "WH-WD400D", "WH-WD500E",
-    "WH-RF600F", "WH-RF700G", "WH-MW800H", "WH-MW900I", "WH-DW100J"
-]
+
+# Load SKUs from unique_skus.txt file
+def load_skus_from_file(file_path: str = "unique_skus.txt") -> List[str]:
+    """
+    Load SKUs from a text file (one SKU per line).
+    
+    Args:
+        file_path: Path to the SKU file (relative to project root)
+    
+    Returns:
+        List of SKU strings
+    """
+    import os
+    # Get the project root directory (where config.py is located)
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    sku_file_path = os.path.join(project_root, file_path)
+    
+    try:
+        with open(sku_file_path, 'r', encoding='utf-8') as f:
+            skus = [line.strip() for line in f if line.strip()]
+        return skus
+    except FileNotFoundError:
+        # Fallback to default SKUs if file not found
+        return [
+            "7KFCB519MPA"]
+
+# Load SKUs from unique_skus.txt
+DEFAULT_SKUS = load_skus_from_file("unique_skus.txt")
 
 # Time Range Options
 TIME_RANGE_OPTIONS = ["1 week", "2 weeks", "1 month", "3 months", "6 months", "1 year"]
