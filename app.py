@@ -249,6 +249,118 @@ st.markdown("""
     
     /* Hide Streamlit branding (keep header visible for sidebar toggle) */
     #MainMenu {visibility: hidden;}
+    
+    /* KPI Chip Styling */
+    .kpi-chip {
+        background: white;
+        border: 1px solid #E0E0E0;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        color: #2D2D2D;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+        height: 120px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .kpi-chip-horizontal {
+        background: white;
+        border: 1px solid #E0E0E0;
+        height: 120px;
+    }
+    
+    .kpi-left {
+        width: 100%;
+    }
+    
+    .kpi-label {
+        font-weight: 700;
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.95;
+        letter-spacing: 0.3px;
+    }
+    
+    .kpi-label-horizontal {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        opacity: 0.95;
+        text-align: right;
+    }
+    
+    .kpi-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
+    }
+    
+    .kpi-value-large {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1.1;
+        letter-spacing: -1px;
+    }
+    
+    .kpi-value-large.positive {
+        color: #4CAF50;
+    }
+    
+    .kpi-value-large.negative {
+        color: #F44336;
+    }
+    
+    .kpi-delta {
+        font-size: 0.85rem;
+        font-weight: 600;
+        opacity: 0.9;
+        margin-top: 0.25rem;
+    }
+    
+    .kpi-delta-small {
+        font-size: 0.75rem;
+        font-weight: 500;
+        opacity: 0.7;
+        margin-top: 0.25rem;
+        color: #666;
+    }
+    
+    .kpi-delta-large {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .kpi-delta.positive {
+        color: #4CAF50;
+    }
+    
+    .kpi-delta.negative {
+        color: #F44336;
+    }
+    
+    /* Horizontal layout for KPI 2 */
+    .kpi-horizontal-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 1rem;
+    }
+    
+    .kpi-horizontal-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        text-align: right;
+    }
 
     </style>
 """, unsafe_allow_html=True)
