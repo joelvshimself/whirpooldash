@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 import config
 from services.run_model import predict_price_scenario_xgb_from_pickle
 from services.data_service import DataService
-from utils.helpers import format_currency, format_number, format_percentage
+from services.sellout_kpis import get_sellout_kpis
+from utils.helpers import format_currency, format_currency_millions, format_number, format_percentage
 
 data_service = DataService()
 
@@ -41,67 +42,130 @@ def _get_icon_svg(name: str) -> str:
     """
 
 
-def render_kpi_chip(label: str, value_text: str, delta_value: float, delta_text: str, icon_name: str = "users", accent_color: str = "#E5B31A") -> None:
-    """Render a single KPI as a chip-style card"""
+def render_kpi_chip(label: str, value_text: str, delta_value: float, delta_text: str, icon_name: str = "users", accent_color: str = "#E5B31A", layout: str = "standard", large_delta: bool = False) -> None:
+    """
+    Render a single KPI as a chip-style card
+    
+    Args:
+        label: Label text for the KPI
+        value_text: Formatted value to display
+        delta_value: Numeric delta value (for color determination)
+        delta_text: Formatted delta text to display
+        icon_name: Icon name (not currently used but kept for compatibility)
+        accent_color: Accent color (not currently used but kept for compatibility)
+        layout: "standard" for label above value, "horizontal" for value left, label right
+        large_delta: If True, make delta text larger (for percentage display)
+    """
     
     delta_class = "positive" if delta_value >= 0 else "negative"
-    icon_svg = _get_icon_svg(icon_name)
-    st.markdown(f"""
-    <div class="kpi-chip">
-        <div class="kpi-left">
-            <div class="kpi-label">{label}</div>
-            <div class="kpi-main">
-                <span class="kpi-value">{value_text}</span>
-                <span class="kpi-delta {delta_class}">{delta_text}</span>
+    delta_size_class = "kpi-delta-large" if large_delta else ""
+    
+    if layout == "horizontal":
+        # Horizontal layout: value on left (large), label on right
+        st.markdown(f"""
+        <div class="kpi-chip kpi-chip-horizontal">
+            <div class="kpi-horizontal-content">
+                <span class="kpi-value kpi-value-large">{value_text}</span>
+                <div class="kpi-horizontal-right">
+                    <div class="kpi-label kpi-label-horizontal">{label}</div>
+                    <span class="kpi-delta {delta_class} {delta_size_class}">{delta_text}</span>
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    else:
+        # Standard layout: label above, value and delta below
+        # If large_delta is True, make the value_text (percentage) large and prominent
+        if large_delta:
+            st.markdown(f"""
+            <div class="kpi-chip">
+                <div class="kpi-left">
+                    <div class="kpi-label">{label}</div>
+                    <div class="kpi-main">
+                        <span class="kpi-value kpi-value-large {delta_class}">{value_text}</span>
+                        <span class="kpi-delta-small">{delta_text}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="kpi-chip">
+                <div class="kpi-left">
+                    <div class="kpi-label">{label}</div>
+                    <div class="kpi-main">
+                        <span class="kpi-value">{value_text}</span>
+                        <span class="kpi-delta {delta_class} {delta_size_class}">{delta_text}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 def render_kpi_cards():
-    """Render KPI cards"""
-    kpis = data_service.get_kpis()
+    """Render KPI cards for Sellout dashboard"""
+    try:
+        kpis = get_sellout_kpis()
+    except Exception as e:
+        st.error(f"Error loading sellout KPIs: {e}")
+        return
+    
     col1, col2, col3, col4 = st.columns(4, gap="small")
     
+    # KPI 1: Items sold this year
     with col1:
+        articles_value = format_number(kpis["articles_this_year"])
         render_kpi_chip(
-            label="Today's Money",
-            value_text=format_currency(kpis["todays_money"]),
-            delta_value=kpis["money_change"],
-            delta_text=format_percentage(kpis["money_change"]),
-            icon_name="money",
-            accent_color="#E5B31A"
+            label="Items Sold",
+            value_text=articles_value,
+            delta_value=0.0,
+            delta_text=f"Year {kpis['current_year']}",
+            icon_name="users",
+            accent_color="#E5B31A",
+            layout="standard"
         )
     
+    # KPI 2: Total sales (items × price) - layout horizontal
     with col2:
+        sales_value = format_currency_millions(kpis["sales_this_year"])
         render_kpi_chip(
-            label="Today's Users",
-            value_text=format_number(kpis["todays_users"]),
-            delta_value=kpis["users_change"],
-            delta_text=format_percentage(kpis["users_change"]),
-            icon_name="users",
-            accent_color="#E5B31A"
+            label="Total Sales",
+            value_text=sales_value,
+            delta_value=0.0,
+            delta_text=f"Year {kpis['current_year']}",
+            icon_name="money",
+            accent_color="#E5B31A",
+            layout="horizontal"
         )
     
+    # KPI 3: Items delta vs previous year (large percentage only)
     with col3:
+        articles_delta_pct = kpis["articles_delta_percentage"]
+        delta_percentage_text = format_percentage(articles_delta_pct) if articles_delta_pct != 0.0 else "N/A"
         render_kpi_chip(
-            label="Today's Users",
-            value_text=format_number(kpis["todays_users"]),
-            delta_value=kpis["users_change"],
-            delta_text=format_percentage(kpis["users_change"]),
+            label="Items Delta",
+            value_text=delta_percentage_text,
+            delta_value=articles_delta_pct,
+            delta_text=f"vs {kpis['previous_year']}",
             icon_name="users",
-            accent_color="#E5B31A"
+            accent_color="#E5B31A",
+            layout="standard",
+            large_delta=True
         )
     
+    # KPI 4: Sales delta vs previous year (large percentage only)
     with col4:
+        sales_delta_pct = kpis["sales_delta_percentage"]
+        delta_percentage_text = format_percentage(sales_delta_pct) if sales_delta_pct != 0.0 else "N/A"
         render_kpi_chip(
-            label="Today's Users",
-            value_text=format_number(kpis["todays_users"]),
-            delta_value=kpis["users_change"],
-            delta_text=format_percentage(kpis["users_change"]),
-            icon_name="users",
-            accent_color="#E5B31A"
+            label="Sales Delta",
+            value_text=delta_percentage_text,
+            delta_value=sales_delta_pct,
+            delta_text=f"vs {kpis['previous_year']}",
+            icon_name="money",
+            accent_color="#E5B31A",
+            layout="standard",
+            large_delta=True
         )
 
 
@@ -404,39 +468,39 @@ def render_prediction_chart(selected_sku: str, forecast_date_range, predictions_
     
     chart_df = predictions_df.copy()
     
-    # Convertir Predicted_Date a datetime si es string
+    # Convert Predicted_Date to datetime if it's a string
     if chart_df['Predicted_Date'].dtype == 'object':
         chart_df['Predicted_Date'] = pd.to_datetime(chart_df['Predicted_Date'])
     
-    # Ordenar por fecha y TP
+    # Sort by date and TP
     chart_df = chart_df.sort_values(['Predicted_Date', 'TP'])
     
-    # Obtener lista única de TPs
+    # Get unique list of TPs
     unique_tps = sorted(chart_df['TP'].unique())
     num_tps = len(unique_tps)
     
-    # Crear gradiente de naranja para los diferentes TP
-    # Colores de naranja desde más claro a más oscuro
+    # Create orange gradient for different TPs
+    # Orange colors from lightest to darkest
     orange_gradient = [
-        '#FFE5CC',  # Muy claro
-        '#FFD4A3',  # Claro
-        '#FFC380',  # Medio-claro
-        '#FFB259',  # Medio
-        '#FFA033',  # Medio-oscuro
-        '#FF8F0D',  # Oscuro
-        '#FF7F00',  # Muy oscuro
-        '#FF6B35',  # Naranja intenso
-        '#FF5722',  # Naranja rojizo
-        '#FF4500'   # Naranja rojo
+        '#FFE5CC',  # Very light
+        '#FFD4A3',  # Light
+        '#FFC380',  # Medium-light
+        '#FFB259',  # Medium
+        '#FFA033',  # Medium-dark
+        '#FF8F0D',  # Dark
+        '#FF7F00',  # Very dark
+        '#FF6B35',  # Intense orange
+        '#FF5722',  # Reddish orange
+        '#FF4500'   # Red orange
     ]
     
-    # Si hay más TPs que colores, repetir el gradiente
+    # If there are more TPs than colors, repeat the gradient
     if num_tps > len(orange_gradient):
         orange_gradient = orange_gradient * ((num_tps // len(orange_gradient)) + 1)
     
     fig = go.Figure()
     
-    # Agregar una línea por cada TP
+    # Add a line for each TP
     for idx, tp in enumerate(unique_tps):
         tp_data = chart_df[chart_df['TP'] == tp].copy()
         tp_data = tp_data.sort_values('Predicted_Date')
@@ -453,14 +517,14 @@ def render_prediction_chart(selected_sku: str, forecast_date_range, predictions_
             hovertemplate=f'<b>{tp}</b><br>Date: %{{x|%Y-%m-%d}}<br>Price: $%{{y:,.2f}}<br>SKU: {selected_sku}<extra></extra>'
         ))
     
-    # Calcular rango de precios
+    # Calculate price range
     max_price = chart_df['Predicted_Real_Price'].astype(float).max()
     min_price = chart_df['Predicted_Real_Price'].astype(float).min()
     price_range = max_price - min_price
     y_max = max_price + (price_range * 0.1) if price_range > 0 else max_price * 1.1
     y_min = min_price - (price_range * 0.1) if price_range > 0 else 0
     
-    # Formatear rango de fechas para el título
+    # Format date range for the title
     if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
         start_date = forecast_date_range[0].strftime("%Y-%m-%d") if hasattr(forecast_date_range[0], "strftime") else str(forecast_date_range[0])
         end_date = forecast_date_range[1].strftime("%Y-%m-%d") if hasattr(forecast_date_range[1], "strftime") else str(forecast_date_range[1])
@@ -551,14 +615,14 @@ def render_prediction_dashboard():
         if st.button("Run Prediction", type="primary", use_container_width=True, key="prediction_run_button"):
             with st.spinner("Running XGBoost prediction..."):
                 try:
-                    # Convertir rango de fechas a tupla de strings
+                    # Convert date range to tuple of strings
                     if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
                         date_range_str = (
                             forecast_date_range[0].strftime("%Y-%m-%d"),
                             forecast_date_range[1].strftime("%Y-%m-%d")
                         )
                     else:
-                        # Si solo hay una fecha, crear un rango de un día
+                        # If there's only one date, create a one-day range
                         single_date = forecast_date_range if isinstance(forecast_date_range, datetime) else forecast_date_range[0]
                         date_str = single_date.strftime("%Y-%m-%d")
                         date_range_str = (date_str, date_str)
@@ -588,7 +652,7 @@ def render_prediction_dashboard():
         inputs = st.session_state.prediction_inputs
         render_prediction_chart(inputs["sku"], inputs["date_range"], predictions_df)
     else:
-        st.info("Selecciona un SKU, un rango de fechas y corre la predicción para ver el resultado del modelo.")
+        st.info("Select a SKU, a date range and run the prediction to see the model result.")
     
     
     # Model Evaluation component
