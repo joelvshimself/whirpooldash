@@ -91,7 +91,7 @@ def _render_kpis(kpis: dict) -> None:
             label="Whirlpool Position",
             value_text=position_text,
             delta_value=0.0,
-            delta_text="vs competidores",
+            delta_text="vs competitors",
             icon_name="users",
         )
 
@@ -129,7 +129,7 @@ def _render_units_trend_chart(brand_df: pd.DataFrame, brands: list[str]) -> None
         y="units",
         color="brand",
         markers=True,
-        title="Unidades vendidas por marca",
+        title="Units sold by brand",
         color_discrete_map=color_map,
     )
     fig.update_traces(line=dict(width=3))
@@ -168,7 +168,7 @@ def _render_category_histogram(category_df: pd.DataFrame, top_brands: list[str],
         y="units",
         color="brand",
         barmode="group",
-        title=f"Top 5 marcas por categoría · {latest_year}",
+        title=f"Top 5 brands by category · {latest_year}",
         color_discrete_map=color_map,
     )
     fig.update_layout(
