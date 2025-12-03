@@ -595,11 +595,48 @@ def render_prediction_dashboard():
     col1, col2 = st.columns([2, 1], gap="medium")
     
     with col1:
-        selected_sku = st.selectbox(
+        # Get SKUs with categories for display
+        try:
+            sku_display_map = config.get_skus_with_categories()
+            sku_options = list(sku_display_map.keys())
+        except Exception as e:
+            # Fallback to default SKUs without categories if there's an error
+            st.warning(f"Could not load SKU categories: {e}")
+            sku_display_map = {sku: sku for sku in config.DEFAULT_SKUS}
+            sku_options = config.DEFAULT_SKUS
+        
+        if not sku_options:
+            st.error("No SKUs available. Please check unique_skus.txt file.")
+            return
+        
+        # Get the current selected SKU from session state or use first option
+        current_sku = st.session_state.prediction_inputs.get("sku", config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else None)
+        
+        # Find the display text for the current SKU
+        current_display = None
+        for display_text, sku_value in sku_display_map.items():
+            if sku_value == current_sku:
+                current_display = display_text
+                break
+        
+        # If current SKU not found in display map, use first option
+        if current_display is None and sku_options:
+            current_display = sku_options[0]
+        
+        # Determine the index for the selectbox
+        selected_index = 0
+        if current_display and current_display in sku_options:
+            selected_index = sku_options.index(current_display)
+        
+        selected_display = st.selectbox(
             "SKU",
-            options=config.DEFAULT_SKUS,
+            options=sku_options,
+            index=selected_index,
             key="prediction_sku"
         )
+        
+        # Extract the actual SKU value from the selected display text
+        selected_sku = sku_display_map.get(selected_display, config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else "")
     
     with col2:
         today = datetime.today().date()

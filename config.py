@@ -2,7 +2,7 @@
 Configuration file for Whirlpool Dashboard
 """
 import os
-from typing import List
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -57,6 +57,83 @@ def load_skus_from_file(file_path: str = "unique_skus.txt") -> List[str]:
         # Fallback to default SKUs if file not found
         return [
             "7KFCB519MPA"]
+
+
+def get_sku_categories(skus: List[str]) -> Dict[str, str]:
+    """
+    Get categories for SKUs from the database.
+    
+    Args:
+        skus: List of SKU strings
+    
+    Returns:
+        Dictionary mapping SKU to category (or "Unknown" if not found)
+    """
+    try:
+        from services.db import run_query
+        import pandas as pd
+        
+        if not skus:
+            return {}
+        
+        # Create a query to get unique SKU-Category pairs using parameterized query
+        # Build placeholders for IN clause
+        placeholders = ','.join([f':sku_{i}' for i in range(len(skus))])
+        query = f"""
+        SELECT DISTINCT "SKU", "CATEGORY"
+        FROM iqsigma
+        WHERE "SKU" IN ({placeholders})
+        """
+        
+        # Create parameters dictionary
+        params = {f'sku_{i}': sku for i, sku in enumerate(skus)}
+        
+        df = run_query(query, params=params)
+        
+        # Create dictionary mapping SKU to Category
+        sku_category_map = {}
+        if not df.empty:
+            for _, row in df.iterrows():
+                sku = str(row['SKU']).strip()
+                category = str(row['CATEGORY']).strip() if pd.notna(row['CATEGORY']) else "Unknown"
+                sku_category_map[sku] = category
+        
+        # Fill in missing SKUs with "Unknown"
+        for sku in skus:
+            if sku not in sku_category_map:
+                sku_category_map[sku] = "Unknown"
+        
+        return sku_category_map
+    except Exception as e:
+        # If database query fails, return all as "Unknown"
+        import warnings
+        warnings.warn(f"Could not fetch SKU categories from database: {e}")
+        return {sku: "Unknown" for sku in skus}
+
+
+def get_skus_with_categories() -> Dict[str, str]:
+    """
+    Get SKUs with their categories for display in selectbox.
+    
+    Returns:
+        Dictionary mapping display string (SKU - Category or just SKU) to SKU value
+    """
+    skus = load_skus_from_file("unique_skus.txt")
+    categories = get_sku_categories(skus)
+    
+    # Create mapping: "SKU - Category" -> "SKU" (or just "SKU" if category is Unknown)
+    sku_display_map = {}
+    for sku in skus:
+        category = categories.get(sku, "Unknown")
+        # Only show category if it's not "Unknown"
+        if category and category != "Unknown":
+            display_text = f"{sku} - {category}"
+        else:
+            display_text = sku
+        sku_display_map[display_text] = sku
+    
+    return sku_display_map
+
 
 # Load SKUs from unique_skus.txt
 DEFAULT_SKUS = load_skus_from_file("unique_skus.txt")
