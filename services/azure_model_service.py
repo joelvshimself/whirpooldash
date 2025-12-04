@@ -65,7 +65,7 @@ class AzureModelService:
         Returns:
             List of partner names
         """
-        return config.DEFAULT_PARTNERS
+        return config.get_training_partners()
     
     def clear_cache(self):
         """Clear cached models to free memory"""

@@ -57,9 +57,13 @@ def render_price_calculator():
                 options=config.TIME_RANGE_OPTIONS,
                 key="pc_time_range"
             )
+            partner_options = config.get_training_partners() or config.DEFAULT_PARTNERS
+            if not partner_options:
+                st.warning("No training partners available.")
+                partner_options = ["—"]
             partner = st.selectbox(
                 "Training Partner",
-                options=config.DEFAULT_PARTNERS,
+                options=partner_options,
                 index=0,
                 key="pc_partner",
                 help="Select the partner whose trained model to use for prediction"

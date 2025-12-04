@@ -533,10 +533,15 @@ def render_prediction_dashboard():
     """Render the prediction dashboard with the new statement view."""
     st.title("Prediction")
 
+    partner_options = config.get_training_partners() or config.DEFAULT_PARTNERS
+    if not partner_options:
+        st.error("No trading partners available. Please verify sellout data.")
+        return
+
     if "prediction_inputs" not in st.session_state:
         today = datetime.today().date()
         default_sku = config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else ""
-        default_partner = config.DEFAULT_PARTNERS[0] if config.DEFAULT_PARTNERS else ""
+        default_partner = partner_options[0]
         st.session_state.prediction_inputs = {
             "sku": default_sku,
             "prediction_date": today,
@@ -587,11 +592,6 @@ def render_prediction_dashboard():
             selected_display,
             config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else sku_options[0],
         )
-
-        partner_options = config.DEFAULT_PARTNERS or []
-        if not partner_options:
-            st.error("No trading partners configured in DEFAULT_PARTNERS.")
-            return
 
         current_partner = st.session_state.prediction_inputs.get("tp", partner_options[0])
         partner_index = (

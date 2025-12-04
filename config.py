@@ -2,6 +2,7 @@
 Configuration file for Whirlpool Dashboard
 """
 import os
+from functools import lru_cache
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 
@@ -30,7 +31,15 @@ AZURE_BLOB_SAS_TOKEN = os.getenv(
 )
 
 # Default Values
-DEFAULT_PARTNERS = ["Walmart", "Target", "Best Buy", "Home Depot", "Lowes"]
+DEFAULT_PARTNERS = [
+    "CHEDRAUI",
+    "PALACIO DE HIERRO",
+    "LIVERPOOL",
+    "ELEKTRA",
+    "HOME DEPOT",
+    "SEARS",
+    "WALMART",
+]
 DEFAULT_REGIONS = ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East"]
 
 # Load SKUs from unique_skus.txt file
@@ -133,6 +142,33 @@ def get_skus_with_categories() -> Dict[str, str]:
         sku_display_map[display_text] = sku
     
     return sku_display_map
+
+
+@lru_cache(maxsize=1)
+def get_training_partners() -> List[str]:
+    """
+    Get distinct trading partners from sellout table, fallback to defaults.
+    """
+    try:
+        from services.db import run_query
+
+        query = """
+        SELECT DISTINCT TRIM("TP") AS tp
+        FROM sellout
+        WHERE "TP" IS NOT NULL
+          AND TRIM("TP") <> ''
+        ORDER BY tp
+        """
+        df = run_query(query)
+        if not df.empty and "tp" in df.columns:
+            partners = [str(tp).strip() for tp in df["tp"].tolist() if str(tp).strip()]
+            if partners:
+                return partners
+    except Exception as exc:
+        import warnings
+        warnings.warn(f"Could not fetch training partners from sellout: {exc}")
+
+    return DEFAULT_PARTNERS
 
 
 # Load SKUs from unique_skus.txt
