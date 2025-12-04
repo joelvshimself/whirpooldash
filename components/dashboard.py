@@ -484,30 +484,33 @@ def render_prediction_statement_card(result: Dict[str, Any]) -> None:
         """
         <style>
         .prediction-card {
-            background: linear-gradient(120deg, #111827 0%, #1f2937 100%);
+            background: #FFFFFF;
             border-radius: 24px;
             padding: 32px;
             text-align: center;
-            color: white;
+            color: #0F172A;
             margin-bottom: 24px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.09);
         }
         .prediction-card .prediction-label {
             text-transform: uppercase;
-            letter-spacing: 0.12em;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 0.18em;
+            font-size: 0.85rem;
+            color: #6B7280;
         }
         .prediction-card .prediction-value {
             font-size: clamp(48px, 6vw, 72px);
-            font-weight: 700;
+            font-weight: 800;
             margin: 16px 0 8px 0;
+            color: #0F172A;
         }
         .prediction-card .prediction-subtext {
-            font-size: 18px;
-            color: rgba(255, 255, 255, 0.65);
+            font-size: 1rem;
+            color: #4B5563;
         }
         .prediction-card .prediction-delta {
-            font-size: 22px;
+            font-size: 1.05rem;
             font-weight: 600;
             margin-top: 20px;
         }

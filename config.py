@@ -39,6 +39,7 @@ DEFAULT_PARTNERS = [
     "HOME DEPOT",
     "SEARS",
     "WALMART",
+    "BODEGA A"
 ]
 DEFAULT_REGIONS = ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East"]
 
