@@ -184,31 +184,38 @@ def _render_category_histogram(category_df: pd.DataFrame, top_brands: list[str],
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_market_performance() -> None:
+def render_market_performance(
+    brand_df: Optional[pd.DataFrame] = None,
+    category_df: Optional[pd.DataFrame] = None,
+) -> None:
     """Public entry point for the Market Performance page."""
     st.title("Market Performance")
     st.header("Home Appliances - Market Overview")
     
-    try:
-        brand_df = get_brand_yearly_stats()
-    except Exception as exc:
-        st.error(f"No se pudieron cargar las métricas de mercado: {exc}")
-        return
+    local_brand_df = brand_df
+    if local_brand_df is None:
+        try:
+            local_brand_df = get_brand_yearly_stats()
+        except Exception as exc:
+            st.error(f"No se pudieron cargar las métricas de mercado: {exc}")
+            return
     
-    if brand_df.empty:
+    if local_brand_df.empty:
         st.info("No hay datos disponibles en la tabla iqsigma.")
         return
     
-    kpis = compute_latest_year_kpis(brand_df)
+    kpis = compute_latest_year_kpis(local_brand_df)
     if not kpis:
         st.info("No hay KPIs disponibles para mostrar.")
         return
     
-    category_df = get_category_brand_units(kpis["latest_year"])
+    local_category_df = category_df
+    if local_category_df is None:
+        local_category_df = get_category_brand_units(kpis["latest_year"])
     
     _render_kpis(kpis)
     st.markdown("---")
-    _render_units_trend_chart(brand_df, kpis.get("line_brands", []))
+    _render_units_trend_chart(local_brand_df, kpis.get("line_brands", []))
     st.markdown("---")
-    _render_category_histogram(category_df, kpis.get("top_brands_units", []), kpis["latest_year"])
+    _render_category_histogram(local_category_df, kpis.get("top_brands_units", []), kpis["latest_year"])
 

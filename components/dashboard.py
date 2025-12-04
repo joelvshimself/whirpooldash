@@ -1,7 +1,7 @@
 """
 Dashboard component with KPIs, charts, and metrics
 """
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -103,13 +103,14 @@ def render_kpi_chip(label: str, value_text: str, delta_value: float, delta_text:
             """, unsafe_allow_html=True)
 
 
-def render_kpi_cards():
+def render_kpi_cards(kpis: Optional[Dict[str, Any]] = None):
     """Render KPI cards for Sellout dashboard"""
-    try:
-        kpis = get_sellout_kpis()
-    except Exception as e:
-        st.error(f"Error loading sellout KPIs: {e}")
-        return
+    if kpis is None:
+        try:
+            kpis = get_sellout_kpis()
+        except Exception as e:
+            st.error(f"Error loading sellout KPIs: {e}")
+            return
     
     col1, col2, col3, col4 = st.columns(4, gap="small")
     
@@ -441,12 +442,12 @@ def render_brand_category_table():
     st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 
-def render_dashboard():
+def render_dashboard(sellout_kpis: Optional[Dict[str, Any]] = None):
     """Render the main dashboard (Performance)"""
     st.title("Sellout")
     st.header("Home Appliances- Training Partner Offer")
     
-    render_kpi_cards()
+    render_kpi_cards(sellout_kpis)
     
     # Layout: line chart (70%) and bar chart (30%)
     chart_col, bar_col = st.columns([0.7, 0.3])
@@ -529,11 +530,11 @@ def render_prediction_statement_card(result: Dict[str, Any]) -> None:
     st.markdown(result["table_html"], unsafe_allow_html=True)
 
 
-def render_prediction_dashboard():
+def render_prediction_dashboard(partner_options: Optional[List[str]] = None):
     """Render the prediction dashboard with the new statement view."""
     st.title("Prediction")
 
-    partner_options = config.get_training_partners() or config.DEFAULT_PARTNERS
+    partner_options = partner_options or config.get_training_partners() or config.DEFAULT_PARTNERS
     if not partner_options:
         st.error("No trading partners available. Please verify sellout data.")
         return

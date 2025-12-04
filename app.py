@@ -12,6 +12,8 @@ from components.price_calculator import render_price_calculator
 import config
 import uvicorn
 import backend
+from services.sellout_kpis import get_sellout_kpis
+from services.market_performance import get_brand_yearly_stats, get_category_brand_units
 
 # Page configuration
 st.set_page_config(
@@ -50,6 +52,47 @@ def start_backend():
 
 # Start backend
 start_backend()
+
+
+def preload_section_data():
+    """Load all expensive datasets upfront to avoid delays when switching sections."""
+    if "prefetched_data" in st.session_state:
+        return st.session_state.prefetched_data
+
+    data = {}
+
+    try:
+        data["sellout_kpis"] = get_sellout_kpis()
+    except Exception as exc:
+        data["sellout_kpis"] = None
+        data["sellout_kpis_error"] = str(exc)
+
+    try:
+        brand_df = get_brand_yearly_stats()
+        data["brand_yearly_stats"] = brand_df
+        if brand_df is not None and not brand_df.empty:
+            latest_year = int(brand_df["year"].max())
+            data["category_brand_units"] = get_category_brand_units(latest_year)
+            data["category_year"] = latest_year
+        else:
+            data["category_brand_units"] = None
+            data["category_year"] = None
+    except Exception as exc:
+        data["brand_yearly_stats"] = None
+        data["category_brand_units"] = None
+        data["market_data_error"] = str(exc)
+
+    try:
+        data["training_partners"] = config.get_training_partners()
+    except Exception as exc:
+        data["training_partners"] = config.DEFAULT_PARTNERS
+        data["training_partners_error"] = str(exc)
+
+    st.session_state.prefetched_data = data
+    return data
+
+
+prefetched_data = preload_section_data()
 
 # Native Streamlit Sidebar - Company logo + chips + account section
 with st.sidebar:
@@ -385,16 +428,21 @@ if st.session_state.page == "home":
 
 elif st.session_state.page == "dashboard_performance":
     # Single column layout: main content only
-    render_dashboard()
+    render_dashboard(sellout_kpis=prefetched_data.get("sellout_kpis"))
     st.markdown("---")
 
 elif st.session_state.page == "market_performance":
-    render_market_performance()
+    render_market_performance(
+        brand_df=prefetched_data.get("brand_yearly_stats"),
+        category_df=prefetched_data.get("category_brand_units"),
+    )
     st.markdown("---")
 
 elif st.session_state.page == "prediction":
     # Full width layout: prediction dashboard only
-    render_prediction_dashboard()
+    render_prediction_dashboard(
+        partner_options=prefetched_data.get("training_partners")
+    )
 
 else:
     st.title("Home - Prueba 1")
