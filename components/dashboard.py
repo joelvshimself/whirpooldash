@@ -1,13 +1,14 @@
 """
 Dashboard component with KPIs, charts, and metrics
 """
+from typing import Any, Dict
+
 import streamlit as st
 import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import config
-from services.run_model import predict_price_scenario_xgb_from_pickle
+from services.run_model import generate_price_prediction_statement
 from services.data_service import DataService
 from services.sellout_kpis import get_sellout_kpis
 from utils.helpers import format_currency, format_currency_millions, format_number, format_percentage
@@ -460,239 +461,189 @@ def render_dashboard():
     
 
 
-def render_prediction_chart(selected_sku: str, forecast_date_range, predictions_df: pd.DataFrame):
-    """Render the prediction chart with time on x-axis and one line per Trading Partner with orange gradients."""
-    if predictions_df is None or predictions_df.empty:
-        st.info("No prediction data available to plot.")
-        return
-    
-    chart_df = predictions_df.copy()
-    
-    # Convert Predicted_Date to datetime if it's a string
-    if chart_df['Predicted_Date'].dtype == 'object':
-        chart_df['Predicted_Date'] = pd.to_datetime(chart_df['Predicted_Date'])
-    
-    # Sort by date and TP
-    chart_df = chart_df.sort_values(['Predicted_Date', 'TP'])
-    
-    # Get unique list of TPs
-    unique_tps = sorted(chart_df['TP'].unique())
-    num_tps = len(unique_tps)
-    
-    # Create orange gradient for different TPs
-    # Orange colors from lightest to darkest
-    orange_gradient = [
-        '#FFE5CC',  # Very light
-        '#FFD4A3',  # Light
-        '#FFC380',  # Medium-light
-        '#FFB259',  # Medium
-        '#FFA033',  # Medium-dark
-        '#FF8F0D',  # Dark
-        '#FF7F00',  # Very dark
-        '#FF6B35',  # Intense orange
-        '#FF5722',  # Reddish orange
-        '#FF4500'   # Red orange
-    ]
-    
-    # If there are more TPs than colors, repeat the gradient
-    if num_tps > len(orange_gradient):
-        orange_gradient = orange_gradient * ((num_tps // len(orange_gradient)) + 1)
-    
-    fig = go.Figure()
-    
-    # Add a line for each TP
-    for idx, tp in enumerate(unique_tps):
-        tp_data = chart_df[chart_df['TP'] == tp].copy()
-        tp_data = tp_data.sort_values('Predicted_Date')
-        
-        color = orange_gradient[idx % len(orange_gradient)]
-        
-        fig.add_trace(go.Scatter(
-            x=tp_data['Predicted_Date'],
-            y=tp_data['Predicted_Real_Price'].astype(float),
-            mode='lines+markers',
-            name=tp,
-            line=dict(color=color, width=4),
-            marker=dict(size=10, color=color, line=dict(color='white', width=1.5)),
-            hovertemplate=f'<b>{tp}</b><br>Date: %{{x|%Y-%m-%d}}<br>Price: $%{{y:,.2f}}<br>SKU: {selected_sku}<extra></extra>'
-        ))
-    
-    # Calculate price range
-    max_price = chart_df['Predicted_Real_Price'].astype(float).max()
-    min_price = chart_df['Predicted_Real_Price'].astype(float).min()
-    price_range = max_price - min_price
-    y_max = max_price + (price_range * 0.1) if price_range > 0 else max_price * 1.1
-    y_min = min_price - (price_range * 0.1) if price_range > 0 else 0
-    
-    # Format date range for the title
-    if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
-        start_date = forecast_date_range[0].strftime("%Y-%m-%d") if hasattr(forecast_date_range[0], "strftime") else str(forecast_date_range[0])
-        end_date = forecast_date_range[1].strftime("%Y-%m-%d") if hasattr(forecast_date_range[1], "strftime") else str(forecast_date_range[1])
-        date_label = f"{start_date} to {end_date}"
-    else:
-        date_label = str(forecast_date_range)
-    
-    fig.update_layout(
-        title=f"Predicted Price Over Time by Trading Partner - {selected_sku}",
-        xaxis_title="Time",
-        yaxis_title="Predicted Price",
-        hovermode='x unified',
-        height=550,
-        showlegend=True,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(0,0,0,0.1)',
-            gridwidth=1,
-            type='date'
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(0,0,0,0.1)',
-            gridwidth=1,
-            range=[y_min, y_max]
-        )
+def render_prediction_statement_card(result: Dict[str, Any]) -> None:
+    """Render a single-value prediction statement with contextual table."""
+    price_value = result["predicted_price"]
+    pct_change = result.get("pct_change")
+    past_period = result.get("past_period", "Previous")
+    prediction_date = result.get("prediction_date", "")
+    sku = result.get("sku", "")
+    tp = result.get("tp", "")
+    category = result.get("category", "")
+
+    delta_value = pct_change if pct_change is not None else 0.0
+    delta_text = (
+        f"{pct_change:+.2f}% vs {past_period}"
+        if pct_change is not None
+        else "No past price reference"
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    delta_color = "#16A34A" if delta_value >= 0 else "#B91C1C"
 
+    st.markdown(
+        """
+        <style>
+        .prediction-card {
+            background: linear-gradient(120deg, #111827 0%, #1f2937 100%);
+            border-radius: 24px;
+            padding: 32px;
+            text-align: center;
+            color: white;
+            margin-bottom: 24px;
+        }
+        .prediction-card .prediction-label {
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .prediction-card .prediction-value {
+            font-size: clamp(48px, 6vw, 72px);
+            font-weight: 700;
+            margin: 16px 0 8px 0;
+        }
+        .prediction-card .prediction-subtext {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.65);
+        }
+        .prediction-card .prediction-delta {
+            font-size: 22px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-def render_prediction_table(predictions_df: pd.DataFrame):
-    """Show raw prediction results for transparency."""
-    if predictions_df is None or predictions_df.empty:
-        return
-    
-    display_cols = ['SKU', 'TP', 'CATEGORY', 'Predicted_Date', 'Predicted_Real_Price', 'Adjusted_for_Inflation']
-    table_df = predictions_df[display_cols].copy()
-    table_df['Predicted_Real_Price'] = table_df['Predicted_Real_Price'].map(lambda x: f"${x:,.2f}")
-    
-    st.markdown("### Prediction Output")
-    st.dataframe(table_df, use_container_width=True, hide_index=True)
+    st.markdown(
+        f"""
+        <div class="prediction-card">
+            <div class="prediction-label">{tp.upper()} · {sku}{' · ' + category if category else ''}</div>
+            <div class="prediction-value">${price_value:,.2f}</div>
+            <div class="prediction-subtext">Prediction for {prediction_date}</div>
+            <div class="prediction-delta" style="color:{delta_color};">{delta_text}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(result["table_html"], unsafe_allow_html=True)
 
 
 def render_prediction_dashboard():
-    """Render the prediction dashboard with focused SKU/date range inputs and chart"""
+    """Render the prediction dashboard with the new statement view."""
     st.title("Prediction")
-    
-    if 'prediction_inputs' not in st.session_state:
+
+    if "prediction_inputs" not in st.session_state:
         today = datetime.today().date()
+        default_sku = config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else ""
+        default_partner = config.DEFAULT_PARTNERS[0] if config.DEFAULT_PARTNERS else ""
         st.session_state.prediction_inputs = {
-            "sku": config.DEFAULT_SKUS[0],
-            "date_range": (today, today + timedelta(days=30))
+            "sku": default_sku,
+            "prediction_date": today,
+            "tp": default_partner,
         }
         st.session_state.prediction_ran = False
-    if 'prediction_results' not in st.session_state:
+    if "prediction_results" not in st.session_state:
         st.session_state.prediction_results = None
-    
+
     col1, col2 = st.columns([2, 1], gap="medium")
-    
+
     with col1:
-        # Get SKUs with categories for display
         try:
             sku_display_map = config.get_skus_with_categories()
             sku_options = list(sku_display_map.keys())
-        except Exception as e:
-            # Fallback to default SKUs without categories if there's an error
-            st.warning(f"Could not load SKU categories: {e}")
+        except Exception as exc:
+            st.warning(f"Could not load SKU categories: {exc}")
             sku_display_map = {sku: sku for sku in config.DEFAULT_SKUS}
             sku_options = config.DEFAULT_SKUS
-        
+
         if not sku_options:
             st.error("No SKUs available. Please check unique_skus.txt file.")
             return
-        
-        # Get the current selected SKU from session state or use first option
-        current_sku = st.session_state.prediction_inputs.get("sku", config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else None)
-        
-        # Find the display text for the current SKU
+
+        current_sku = st.session_state.prediction_inputs.get(
+            "sku", config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else sku_options[0]
+        )
+
         current_display = None
         for display_text, sku_value in sku_display_map.items():
             if sku_value == current_sku:
                 current_display = display_text
                 break
-        
-        # If current SKU not found in display map, use first option
+
         if current_display is None and sku_options:
             current_display = sku_options[0]
-        
-        # Determine the index for the selectbox
-        selected_index = 0
-        if current_display and current_display in sku_options:
-            selected_index = sku_options.index(current_display)
-        
+
+        selected_index = sku_options.index(current_display) if current_display in sku_options else 0
+
         selected_display = st.selectbox(
             "SKU",
             options=sku_options,
             index=selected_index,
-            key="prediction_sku"
+            key="prediction_sku",
         )
-        
-        # Extract the actual SKU value from the selected display text
-        selected_sku = sku_display_map.get(selected_display, config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else "")
-    
+
+        selected_sku = sku_display_map.get(
+            selected_display,
+            config.DEFAULT_SKUS[0] if config.DEFAULT_SKUS else sku_options[0],
+        )
+
+        partner_options = config.DEFAULT_PARTNERS or []
+        if not partner_options:
+            st.error("No trading partners configured in DEFAULT_PARTNERS.")
+            return
+
+        current_partner = st.session_state.prediction_inputs.get("tp", partner_options[0])
+        partner_index = (
+            partner_options.index(current_partner) if current_partner in partner_options else 0
+        )
+
+        selected_partner = st.selectbox(
+            "Trading Partner",
+            options=partner_options,
+            index=partner_index,
+            key="prediction_partner",
+        )
+
     with col2:
         today = datetime.today().date()
-        default_range = st.session_state.prediction_inputs.get("date_range", (today, today + timedelta(days=30)))
-        forecast_date_range = st.date_input(
-            "Forecast Range",
-            value=default_range,
-            key="prediction_forecast_date_range"
+        default_date = st.session_state.prediction_inputs.get("prediction_date", today)
+        prediction_date = st.date_input(
+            "Prediction Date",
+            value=default_date,
+            key="prediction_date_input",
         )
-    
+
     run_col, _ = st.columns([1, 4])
     with run_col:
-        if st.button("Run Prediction", type="primary", use_container_width=True, key="prediction_run_button"):
+        if st.button(
+            "Run Prediction", type="primary", use_container_width=True, key="prediction_run_button"
+        ):
             with st.spinner("Running XGBoost prediction..."):
                 try:
-                    # Convert date range to tuple of strings
-                    if isinstance(forecast_date_range, tuple) and len(forecast_date_range) == 2:
-                        date_range_str = (
-                            forecast_date_range[0].strftime("%Y-%m-%d"),
-                            forecast_date_range[1].strftime("%Y-%m-%d")
-                        )
-                    else:
-                        # If there's only one date, create a one-day range
-                        single_date = forecast_date_range if isinstance(forecast_date_range, datetime) else forecast_date_range[0]
-                        date_str = single_date.strftime("%Y-%m-%d")
-                        date_range_str = (date_str, date_str)
-                    
-                    predictions_df = predict_price_scenario_xgb_from_pickle(
-                        sku_list=[selected_sku],
-                        date_input=date_range_str
+                    result = generate_price_prediction_statement(
+                        sku=selected_sku,
+                        tp=selected_partner,
+                        prediction_date=prediction_date,
                     )
-                    if predictions_df is None or predictions_df.empty:
-                        st.warning("No predictions returned for the selected SKU.")
-                        st.session_state.prediction_ran = False
-                        st.session_state.prediction_results = None
-                    else:
-                        st.session_state.prediction_inputs = {
-                            "sku": selected_sku,
-                            "date_range": forecast_date_range
-                        }
-                        st.session_state.prediction_results = predictions_df
-                        st.session_state.prediction_ran = True
+                    st.session_state.prediction_inputs = {
+                        "sku": selected_sku,
+                        "prediction_date": prediction_date,
+                        "tp": selected_partner,
+                    }
+                    st.session_state.prediction_results = result
+                    st.session_state.prediction_ran = True
                 except Exception as exc:
                     st.error(f"Prediction failed: {exc}")
                     st.session_state.prediction_ran = False
                     st.session_state.prediction_results = None
-    
-    predictions_df = st.session_state.prediction_results
-    if st.session_state.get("prediction_ran") and predictions_df is not None:
-        inputs = st.session_state.prediction_inputs
-        render_prediction_chart(inputs["sku"], inputs["date_range"], predictions_df)
+
+    result = st.session_state.prediction_results
+    if st.session_state.get("prediction_ran") and result:
+        render_prediction_statement_card(result)
     else:
-        st.info("Select a SKU, a date range and run the prediction to see the model result.")
-    
-    
-    # Model Evaluation component
+        st.info("Select a SKU, a trading partner and a prediction date, then run the model.")
+
     render_model_evaluation()
 
 

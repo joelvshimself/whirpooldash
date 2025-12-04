@@ -2,15 +2,30 @@ import logging
 import pickle
 from functools import lru_cache
 from io import BytesIO
-from typing import List, Optional, Union, Tuple
-from datetime import datetime, timedelta
+from typing import Any, Dict, Tuple, Union
+from datetime import datetime
 
-import numpy as np
 import pandas as pd
 import requests
 import xgboost  # noqa: F401 - ensures pickle can import xgboost objects
 
 logger = logging.getLogger(__name__)
+
+FINAL_MODEL_PATH = (
+    "https://modelstoragest.blob.core.windows.net/models/final_xgb_model.pkl?"
+    "sp=r&st=2025-12-02T19:06:56Z&se=2025-12-03T03:21:56Z&sv=2024-11-04&sr=b&"
+    "sig=ZtO61rC8s65eInoUamRKExiWEkJkyZ3VaWhUqZstD3Q%3D"
+)
+FINAL_COLUMNS_PATH = (
+    "https://modelstoragest.blob.core.windows.net/data/final_xgb_encoded_columns.pkl?"
+    "sp=r&st=2025-12-02T19:06:06Z&se=2026-03-14T03:21:06Z&sv=2024-11-04&sr=b&"
+    "sig=F2JrNHD08NcyG%2Flji9G%2BRNtBfbdpgHfMG3ITd8TMb6c%3D"
+)
+FINAL_SOURCE_DATA_PATH = (
+    "https://modelstoragest.blob.core.windows.net/data/final_xgb_source_data.pkl?"
+    "sp=r&st=2025-12-02T19:05:36Z&se=2026-02-21T03:20:36Z&sv=2024-11-04&sr=b&"
+    "sig=Ld%2BThpGIs4Fgpmkqb9awBOKB56Jx57IMfCwqx96g2gI%3D"
+)
 
 
 @lru_cache(maxsize=16)
@@ -27,95 +42,140 @@ def _load_remote_pickle(url: str):
     return obj
 
 
-def predict_price_scenario_xgb_from_pickle(
-    sku_list: List[str],
-    date_input: Union[str, Tuple[str, str]],
-    inflation_adjustment: float = 0.0,
-    model_path: str = 'https://modelstoragest.blob.core.windows.net/models/xgboost_model.pkl?sp=r&st=2025-12-01T18:33:44Z&se=2026-03-06T02:48:44Z&sv=2024-11-04&sr=b&sig=eeRT9WytrsP4aCIijJngHAskPs4WobFtkJeClwnuRxA%3D',
-    columns_path: str = 'https://modelstoragest.blob.core.windows.net/data/xgb_encoded_columns.pkl?sp=r&st=2025-12-01T18:36:04Z&se=2026-03-07T02:51:04Z&sv=2024-11-04&sr=b&sig=mc4wcriw68V5Hl0%2FXDabxul3O0ottE5qwPxr48XCUkg%3D',
-    df_path: str = 'https://modelstoragest.blob.core.windows.net/data/xgb_source_data.pkl?sp=r&st=2025-12-01T18:36:32Z&se=2026-03-20T02:51:32Z&sv=2024-11-04&sr=b&sig=KWYG7OAExjvkad77eam9%2BzcWtYyM%2FShn%2Fnxfq5FoCC4%3D'
-) -> Optional[pd.DataFrame]:
+def _format_date(value: Union[str, datetime, pd.Timestamp]) -> str:
+    """Convert timestamps/strings to YYYY-MM-DD strings."""
+    if isinstance(value, pd.Timestamp):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    return str(value)
+
+
+def price_comparison_table(
+    df: pd.DataFrame,
+    model: Any,
+    feature_cols,
+    tp: str,
+    sku: str,
+    pred_date: str,
+) -> Tuple[pd.DataFrame, str]:
     """
-    Predice precios usando el modelo XGBoost cargado desde pickle.
-    Similar a predict_price_scenario_xgb pero carga el modelo desde archivos pickle.
-    
-    Args:
-        sku_list: Lista de SKUs a predecir (ej: ['WFR5000D'])
-        date_input: Fecha de predicción (ej: '2025-11-18') o rango de fechas (ej: ('2025-11-18', '2025-12-18'))
-        inflation_adjustment: Ajuste de inflación (ej: 0.04 para +4%)
-        model_path: Ruta al modelo guardado
-        columns_path: Ruta a las columnas codificadas
-        df_path: Ruta al dataset fuente
-    
-    Returns:
-        DataFrame con predicciones listas para graficarse
+    Construye la tabla de comparación entre el último precio y la predicción.
+    Devuelve el DataFrame listo para usarse y el HTML estilizado.
     """
-    # Determinar si es un rango de fechas o una fecha única
-    if isinstance(date_input, tuple) and len(date_input) == 2:
-        start_date = datetime.strptime(date_input[0], '%Y-%m-%d')
-        end_date = datetime.strptime(date_input[1], '%Y-%m-%d')
-        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-        date_list = [d.strftime('%Y-%m-%d') for d in date_range]
-        logger.info("Starting XGBoost prediction for SKUs=%s, date_range=%s to %s", sku_list, date_input[0], date_input[1])
-    else:
-        # Fecha única (compatibilidad hacia atrás)
-        date_list = [date_input] if isinstance(date_input, str) else [date_input[0]]
-        logger.info("Starting XGBoost prediction for SKUs=%s, date=%s", sku_list, date_list[0])
-    
-    # Cargar recursos desde Azure Blob
+    latest_rows = df[(df["TP"] == tp) & (df["SKU"] == sku)].sort_values("DATE")
+    if latest_rows.empty:
+        raise ValueError(f"No history for SKU={sku} with TP={tp}")
+
+    past = latest_rows.iloc[-1]
+    past_price = float(past["Real_price"])
+    past_period = _format_date(past["DATE"])
+    category = past["CATEGORY"]
+    inflation = float(past.get("INFLATION", 0.0))
+
+    base_row = pd.DataFrame(
+        [
+            {
+                "INV": 1,
+                "QTY": 1,
+                "GROSS_SALES": past["GROSS_SALES"],
+                "SKU": sku,
+                "TP": tp,
+                "CATEGORY": category,
+            }
+        ]
+    )
+
+    encoded_row = (
+        pd.get_dummies(base_row, columns=["SKU", "TP", "CATEGORY"])
+        .reindex(columns=feature_cols, fill_value=0)
+    )
+
+    pred_price = float(model.predict(encoded_row)[0])
+    pct_change = (
+        ((pred_price - past_price) / past_price) * 100 if past_price != 0 else None
+    )
+
+    result_df = pd.DataFrame(
+        {
+            "SKU": [sku],
+            "CATEGORY": [category],
+            "Past Period": [past_period],
+            "Past Price/Unit": [past_price],
+            "Prediction Date": [pred_date],
+            "Predicted Price/Unit": [pred_price],
+            "% Change": [pct_change],
+            "INF": [inflation],
+        }
+    )
+
+    styler = (
+        result_df.style.set_properties(
+            subset=["Past Period", "Past Price/Unit"],
+            **{"background-color": "gray", "color": "white"},
+        )
+        .set_properties(
+            subset=["Prediction Date", "Predicted Price/Unit"],
+            **{"background-color": "#FFC700", "color": "white"},
+        )
+        .format(
+            {
+                "Past Price/Unit": "{:,.2f}".format,
+                "Predicted Price/Unit": "{:,.2f}".format,
+                "% Change": (lambda x: f"{x:,.2f}%" if x is not None else "—"),
+                "INF": "{:,.6f}".format,
+            }
+        )
+        .set_caption(f"Showing {tp.upper()} – {sku} for {pred_date}")
+    )
+
+    table_html = styler.to_html()
+    return result_df, table_html
+
+
+def generate_price_prediction_statement(
+    sku: str,
+    tp: str,
+    prediction_date: Union[str, datetime],
+    model_path: str = FINAL_MODEL_PATH,
+    columns_path: str = FINAL_COLUMNS_PATH,
+    df_path: str = FINAL_SOURCE_DATA_PATH,
+) -> Dict[str, Any]:
+    """
+    Ejecuta el modelo final y devuelve un statement listo para mostrarse.
+    """
+    pred_date = (
+        prediction_date.strftime("%Y-%m-%d")
+        if hasattr(prediction_date, "strftime")
+        else str(prediction_date)
+    )
+
     trained_model = _load_remote_pickle(model_path)
-    X_encoded_columns = _load_remote_pickle(columns_path)
+    encoded_columns = _load_remote_pickle(columns_path)
     df_source = _load_remote_pickle(df_path)
     
-    # Usar la misma lógica que predict_price_scenario_xgb
-    df_latest = df_source[df_source['SKU'].isin(sku_list)].copy()
-    df_latest = (
-        df_latest.sort_values(['SKU', 'TP', 'DATE'])
-        .groupby(['SKU', 'TP'])
-        .tail(1)
-    )
-    
-    if df_latest.empty:
-        logger.warning("No data found for SKUs=%s", sku_list)
-        return None
-
-    # Preparar datos base para todas las predicciones
-    X_future = df_latest[['INV', 'QTY', 'GROSS_SALES', 'SKU', 'TP', 'CATEGORY']].copy()
-    X_future_encoded = pd.get_dummies(
-        X_future, columns=['SKU', 'TP', 'CATEGORY'], drop_first=True
+    result_df, table_html = price_comparison_table(
+        df=df_source,
+        model=trained_model,
+        feature_cols=encoded_columns,
+        tp=tp,
+        sku=sku,
+        pred_date=pred_date,
     )
 
-    missing_cols = set(X_encoded_columns) - set(X_future_encoded.columns)
-    for c in missing_cols:
-        X_future_encoded[c] = 0
+    row = result_df.iloc[0]
+    pct_change = row["% Change"]
 
-    X_future_encoded = X_future_encoded[X_encoded_columns]
-
-    # Generar predicciones para cada fecha en el rango
-    all_results = []
-    for date_str in date_list:
-        preds = trained_model.predict(X_future_encoded)
-        preds = np.maximum(preds, 0)
-
-        if inflation_adjustment != 0:
-            preds = preds * (1 + inflation_adjustment)
-
-        result = df_latest[['SKU', 'CATEGORY', 'TP']].copy()
-        result['Predicted_Date'] = date_str
-        result['Predicted_Real_Price'] = preds.round(2)
-        result['Adjusted_for_Inflation'] = (
-            f"+{inflation_adjustment*100:.1f}%" if inflation_adjustment != 0 else "—"
-        )
-        all_results.append(result)
-
-    # Combinar todos los resultados
-    final_result = pd.concat(all_results, ignore_index=True)
-    final_result = final_result.sort_values(['Predicted_Date', 'CATEGORY', 'SKU', 'TP']).reset_index(drop=True)
-    
-    logger.info(
-        "Prediction ready: %d rows (SKU=%s, dates=%d)",
-        len(final_result),
-        sku_list,
-        len(date_list),
-    )
-    return final_result
+    return {
+        "table_df": result_df,
+        "table_html": table_html,
+        "sku": sku,
+        "tp": tp,
+        "category": row["CATEGORY"],
+        "prediction_date": pred_date,
+        "past_period": row["Past Period"],
+        "past_price": row["Past Price/Unit"],
+        "predicted_price": row["Predicted Price/Unit"],
+        "pct_change": pct_change,
+        "inflation": row["INF"],
+    }
