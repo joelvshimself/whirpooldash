@@ -13,18 +13,18 @@ logger = logging.getLogger(__name__)
 
 FINAL_MODEL_PATH = (
     "https://modelstoragest.blob.core.windows.net/models/final_xgb_model.pkl?"
-    "sp=r&st=2025-12-02T19:06:56Z&se=2025-12-03T03:21:56Z&sv=2024-11-04&sr=b&"
-    "sig=ZtO61rC8s65eInoUamRKExiWEkJkyZ3VaWhUqZstD3Q%3D"
+    "sp=r&st=2025-12-02T03:34:14Z&se=2026-01-16T11:49:14Z&sv=2024-11-04&sr=b&"
+    "sig=0RIRxO3ObExUaEeTSwkjCUkjALTt7z%2BmDlifnZVlecU%3D"
 )
 FINAL_COLUMNS_PATH = (
     "https://modelstoragest.blob.core.windows.net/data/final_xgb_encoded_columns.pkl?"
-    "sp=r&st=2025-12-02T19:06:06Z&se=2026-03-14T03:21:06Z&sv=2024-11-04&sr=b&"
-    "sig=F2JrNHD08NcyG%2Flji9G%2BRNtBfbdpgHfMG3ITd8TMb6c%3D"
+    "sp=r&st=2025-12-02T03:40:41Z&se=2026-01-29T11:55:41Z&sv=2024-11-04&sr=b&"
+    "sig=0jjkvyd2NtZB8rOk8PvrsXR29QHkNNebe11zH4Bsxug%3D"
 )
 FINAL_SOURCE_DATA_PATH = (
     "https://modelstoragest.blob.core.windows.net/data/final_xgb_source_data.pkl?"
-    "sp=r&st=2025-12-02T19:05:36Z&se=2026-02-21T03:20:36Z&sv=2024-11-04&sr=b&"
-    "sig=Ld%2BThpGIs4Fgpmkqb9awBOKB56Jx57IMfCwqx96g2gI%3D"
+    "sp=r&st=2025-12-02T03:36:29Z&se=2026-01-23T11:51:29Z&sv=2024-11-04&sr=b&"
+    "sig=NMp6i38erBfXcrkBRYD15gmAjifrjCTC2v7835ez8Fo%3D"
 )
 
 
